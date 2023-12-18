@@ -1,0 +1,90 @@
+package internal
+
+import (
+	"fmt"
+	"log/slog"
+	"slices"
+	"time"
+)
+
+type Medium string
+
+const (
+	TV Medium = "tv"
+	//Game  Medium = "game"
+	// PC and Switch are Games but specified uniquely
+	// in the URL since platforms need to be set.
+	PC     Medium = "pc"
+	Switch Medium = "switch"
+	Movie  Medium = "movie"
+)
+
+var AvailableMediums = []Medium{
+	TV, PC, Switch, Movie,
+}
+
+func (m Medium) ToPath() string {
+	if m == PC {
+		return "game/pc"
+	} else if m == Switch {
+		return "game/nintendo-switch"
+	}
+	return string(m)
+}
+
+type Options struct {
+	Medium  Medium `form:"medium" binding:"required"`
+	MinYear int    `form:"min_year" binding:"required"`
+	MaxYear int    `form:"max_year" binding:"required"`
+	Page    int    `form:"page"`
+}
+
+func (opts Options) RangeAsEpoch() (int64, int64) {
+	firstMoment := func(year int) time.Time {
+		return time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+	l := firstMoment(opts.MinYear)
+	u := firstMoment(opts.MaxYear + 1).Add(-time.Second)
+	return l.Unix(), u.Unix()
+}
+
+func (opts Options) IsValid() bool {
+	if !slices.Contains(AvailableMediums, opts.Medium) {
+		return false
+	}
+
+	if opts.MinYear < 1900 || opts.MaxYear < 1900 {
+		return false
+	}
+
+	return true
+}
+
+func (opts Options) Group() slog.Attr {
+	return slog.Group("options",
+		slog.String("medium", string(opts.Medium)),
+		slog.Int("min_year", opts.MinYear),
+		slog.Int("max_year", opts.MaxYear))
+}
+
+type ProductCard struct {
+	Title       string
+	Href        string
+	Score       int
+	Description string
+	ReleaseDate time.Time
+}
+
+type Post struct {
+	ProductCard
+	Medium      Medium
+	RequestedAt time.Time
+}
+
+func (p Post) String() string {
+	s := fmt.Sprintf(`Title:       %v
+ReleaseYear: %v
+Score:       %v`,
+		p.Title, p.ReleaseDate.Year(), p.Score)
+	return s
+}
