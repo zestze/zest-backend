@@ -7,19 +7,58 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	cors "github.com/rs/cors/wrapper/gin"
 	"github.com/zestze/metacritic/internal"
+	"go.opentelemetry.io/otel"
+
+	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
+var tracer = otel.Tracer("metacritic-api")
+
 func main() {
-	slog.Info("starting")
+	slog.Info("going to start on :8080")
+
+	tp, err := newTracer()
+	if err != nil {
+		slog.Error("error setting up tracer", "error", err)
+		return
+	}
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			slog.Error("error shutting down tracer provider", "error", err)
+		}
+	}()
+
 	router := gin.Default()
+	router.Use(cors.Default())
 	internal.Register(router)
 
-	err := router.Run("localhost:8080")
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	err = router.Run(":8080")
 	if err != nil {
 		slog.Error("critical error, shutting down", "error", err)
 	}
 }
+
+func newTracer() (*sdktrace.TracerProvider, error) {
+	exporter, err := stdout.New(stdout.WithPrettyPrint())
+	if err != nil {
+		return nil, err
+	}
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithBatcher(exporter),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	return tp, nil
+}
+
 func scrape(medium internal.Medium, startYear int, numPages int) {
 	ctx := context.Background()
 	for year := startYear; year <= time.Now().Year(); year++ {

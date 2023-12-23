@@ -1,0 +1,29 @@
+services:
+  metacritic-api:
+    build: .
+    ports:
+      - 8080:8080
+    networks:
+      - monitoring
+      - default
+    volumes:
+      - type: bind
+        source: ./internal/store.db 
+        target: /internal/store.db
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - 9090:9090
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - monitoring
+      - default
+volumes:
+  prometheus-data:
+
+networks:
+  monitoring:
+    driver: bridge

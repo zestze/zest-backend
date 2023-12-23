@@ -51,9 +51,9 @@ func (opts Options) RangeAsEpoch() (int64, int64) {
 func (opts Options) IsValid() bool {
 	if !slices.Contains(AvailableMediums, opts.Medium) {
 		return false
-	}
-
-	if opts.MinYear < 1900 || opts.MaxYear < 1900 {
+	} else if opts.MinYear < 1900 || opts.MaxYear < 1900 {
+		return false
+	} else if opts.MinYear > opts.MaxYear {
 		return false
 	}
 
@@ -68,17 +68,17 @@ func (opts Options) Group() slog.Attr {
 }
 
 type ProductCard struct {
-	Title       string
-	Href        string
-	Score       int
-	Description string
-	ReleaseDate time.Time
+	Title       string    `json:"title"`
+	Href        string    `json:"href"`
+	Score       int       `json:"score"`
+	Description string    `json:"description"`
+	ReleaseDate time.Time `json:"release_date"`
 }
 
 type Post struct {
 	ProductCard
-	Medium      Medium
-	RequestedAt time.Time
+	Medium      Medium    `json:"-"`
+	RequestedAt time.Time `json:"-"`
 }
 
 func (p Post) String() string {
