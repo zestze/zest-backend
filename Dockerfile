@@ -8,13 +8,14 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY cmd/*.go ./cmd/
-COPY internal/*.go ./internal/
+COPY internal/reddit/*.go ./internal/reddit/
+COPY internal/metacritic/*.go ./internal/metacritic/
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -C cmd -o /metacritic-api -v
+    -C cmd -o /zest-api -v
 
 FROM scratch
 
-COPY --from=build /metacritic-api /metacritic-api
+COPY --from=build /zest-api /zest-api
 
-CMD ["/metacritic-api"]
+CMD ["/zest-api"]

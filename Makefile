@@ -20,3 +20,8 @@ prometheus:
 
 	#-p 9090:9090 \
 	#--add-host host.docker.internal:host-gateway \
+
+deploy:
+	sudo docker compose build
+	sudo docker save zest-backend-zest-api > zest-api.tar
+	scp zest-api.tar root@165.22.6.21:~/workspace/zest-api.tar

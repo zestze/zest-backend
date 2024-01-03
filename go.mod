@@ -1,4 +1,4 @@
-module github.com/zestze/metacritic
+module github.com/zestze/zest-backend
 
 go 1.21.5
 

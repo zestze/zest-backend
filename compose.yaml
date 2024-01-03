@@ -1,5 +1,5 @@
 services:
-  metacritic-api:
+  zest-api:
     build: .
     ports:
       - 8080:8080
@@ -8,8 +8,14 @@ services:
       - default
     volumes:
       - type: bind
-        source: ./internal/store.db 
-        target: /internal/store.db
+        source: ./internal/reddit/store.db
+        target: /internal/reddit/store.db
+      - type: bind
+        source: ./internal/metacritic/store.db
+        target: /internal/metacritic/store.db
+      - type: bind
+        source: ./secrets/config.json
+        target: /secrets/config.json
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
@@ -23,6 +29,7 @@ services:
       - default
 volumes:
   prometheus-data:
+
 
 networks:
   monitoring:

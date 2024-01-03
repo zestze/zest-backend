@@ -9,7 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	cors "github.com/rs/cors/wrapper/gin"
-	"github.com/zestze/metacritic/internal"
+	"github.com/zestze/zest-backend/internal/metacritic"
+	"github.com/zestze/zest-backend/internal/reddit"
 	"go.opentelemetry.io/otel"
 
 	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -17,7 +18,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-var tracer = otel.Tracer("metacritic-api")
+var tracer = otel.Tracer("zest-api")
 
 func main() {
 	slog.Info("going to start on :8080")
@@ -35,7 +36,12 @@ func main() {
 
 	router := gin.Default()
 	router.Use(cors.Default())
-	internal.Register(router)
+
+	{
+		v1 := router.Group("v1")
+		metacritic.Register(v1)
+		reddit.Register(v1)
+	}
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
@@ -55,18 +61,19 @@ func newTracer() (*sdktrace.TracerProvider, error) {
 		sdktrace.WithBatcher(exporter),
 	)
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{},
+		propagation.Baggage{}))
 	return tp, nil
 }
 
-func scrape(medium internal.Medium, startYear int, numPages int) {
+func scrape(medium metacritic.Medium, startYear int, numPages int) {
 	ctx := context.Background()
 	for year := startYear; year <= time.Now().Year(); year++ {
 		for i := 1; i <= numPages; i++ {
 
 			logger := slog.With("medium", medium, "year", year, "page", i)
 			logger.Info("going to fetch posts from metacritic")
-			posts, err := internal.FetchPosts(ctx, internal.Options{
+			posts, err := metacritic.FetchPosts(ctx, metacritic.Options{
 				Medium:  medium,
 				MinYear: year,
 				MaxYear: year,
@@ -77,7 +84,7 @@ func scrape(medium internal.Medium, startYear int, numPages int) {
 			}
 
 			logger.Info("going to persist posts to sqlite")
-			ids, err := internal.PersistPosts(ctx, posts)
+			ids, err := metacritic.PersistPosts(ctx, posts)
 			if err != nil {
 				panic(err)
 			}

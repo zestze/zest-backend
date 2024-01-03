@@ -1,4 +1,4 @@
-package internal
+package metacritic
 
 import (
 	"log/slog"
@@ -7,11 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Register(r *gin.Engine) {
-	v1 := r.Group("/v1")
-	{
-		v1.GET("/posts", getPostsForAPI)
-	}
+func Register(r gin.IRouter) {
+	g := r.Group("/metacritic")
+	g.GET("/posts", getPostsForAPI)
 }
 
 func getPostsForAPI(c *gin.Context) {

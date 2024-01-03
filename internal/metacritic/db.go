@@ -1,4 +1,4 @@
-package internal
+package metacritic
 
 import (
 	"context"
@@ -11,10 +11,10 @@ import (
 	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
-var DB_FILE_NAME = "internal/store.db"
+var DB_FILE_NAME = "internal/metacritic/store.db"
 
 func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
-	db, err := newDB()
+	db, err := openDB()
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 }
 
 func GetPosts(ctx context.Context, opts Options) ([]Post, error) {
-	db, err := newDB()
+	db, err := openDB()
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	return posts, nil
 }
 
-func newDB() (*sql.DB, error) {
+func openDB() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", DB_FILE_NAME)
 	if err != nil {
 		slog.Error("error opening db", "error", err)
@@ -114,7 +114,7 @@ func newDB() (*sql.DB, error) {
 }
 
 func reset() error {
-	db, err := newDB()
+	db, err := openDB()
 	if err != nil {
 		slog.Error("error resetting table", "error", err)
 		return err
