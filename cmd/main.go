@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
+	"os"
 	"strconv"
 	"time"
 
@@ -16,12 +18,28 @@ import (
 	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
+	"github.com/alecthomas/kong"
 )
 
 var tracer = otel.Tracer("zest-api")
 
+var cli struct {
+	Port        int  `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
+	ForceScrape bool `short:"f" help:"force a scrape operation"`
+}
+
 func main() {
-	slog.Info("going to start on :8080")
+	kong.Parse(&cli)
+
+	if cli.ForceScrape {
+		// TODO(zeke): make this more configurable!
+		scrapeReddit(context.Background(), false)
+		return
+	}
+
+	addr := ":" + strconv.Itoa(cli.Port)
+	slog.Info("going to start on " + addr)
 
 	tp, err := newTracer()
 	if err != nil {
@@ -45,7 +63,7 @@ func main() {
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
-	err = router.Run(":8080")
+	err = router.Run(addr)
 	if err != nil {
 		slog.Error("critical error, shutting down", "error", err)
 	}
@@ -66,7 +84,39 @@ func newTracer() (*sdktrace.TracerProvider, error) {
 	return tp, nil
 }
 
-func scrape(medium metacritic.Medium, startYear int, numPages int) {
+func scrapeReddit(ctx context.Context, persistToFile bool) {
+	err := reddit.Reset()
+	if err != nil {
+		panic(err)
+	}
+	savedPosts, err := reddit.PullData(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	slog.Info("successfully fetched posts", slog.Int("num_post", len(savedPosts)))
+
+	if persistToFile {
+		f, err := os.Create("temp_posts.json")
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+
+		if err := json.NewEncoder(f).Encode(savedPosts); err != nil {
+			panic(err)
+		}
+	}
+
+	ids, err := reddit.PersistPosts(ctx, savedPosts)
+	if err != nil {
+		panic(err)
+	}
+
+	slog.Info("successfully persisted posts", slog.Int("num_persisted", len(ids)))
+}
+
+func scrapeMetacritic(medium metacritic.Medium, startYear int, numPages int) {
 	ctx := context.Background()
 	for year := startYear; year <= time.Now().Year(); year++ {
 		for i := 1; i <= numPages; i++ {

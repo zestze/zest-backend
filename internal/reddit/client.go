@@ -2,13 +2,14 @@ package reddit
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 func Authorize(ctx context.Context, client *http.Client, secrets Secrets) (AuthResponse, error) {
@@ -38,14 +39,14 @@ func Authorize(ctx context.Context, client *http.Client, secrets Secrets) (AuthR
 	defer resp.Body.Close()
 
 	var authResponse AuthResponse
-	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
+	if err := jsoniter.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
 		return AuthResponse{}, fmt.Errorf("Authorize(): error decoding response: %w", err)
 	}
 	return authResponse, nil
 }
 
 func GetSavedPosts(ctx context.Context, client *http.Client, secrets Secrets, authData AuthResponse, lastReceived string) (ApiResponse, error) {
-	fileToRequest := "/user/" + secrets.Username + "/saved"
+	fileToRequest := "/user/" + secrets.Username + "/saved?raw_json=1"
 
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodGet,
@@ -72,7 +73,7 @@ func GetSavedPosts(ctx context.Context, client *http.Client, secrets Secrets, au
 	defer resp.Body.Close()
 
 	var apiResponse ApiResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
+	if err := jsoniter.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
 		return ApiResponse{}, fmt.Errorf("GetSavedPosts(): error decoding: %w", err)
 	}
 
@@ -87,13 +88,13 @@ func LoadSecrets() (Secrets, error) {
 	defer f.Close()
 
 	var secrets Secrets
-	if err = json.NewDecoder(f).Decode(&secrets); err != nil {
+	if err = jsoniter.NewDecoder(f).Decode(&secrets); err != nil {
 		return Secrets{}, fmt.Errorf("LoadSecrets(): error decoding file: %w", err)
 	}
 	return secrets, nil
 }
 
-func PullData(ctx context.Context) ([]Child, error) {
+func PullData(ctx context.Context) ([]Post, error) {
 	secrets, err := LoadSecrets()
 	if err != nil {
 		return nil, err
@@ -107,7 +108,7 @@ func PullData(ctx context.Context) ([]Child, error) {
 
 	slog.Info("successfully authenticated")
 
-	savedPosts := make([]Child, 0)
+	savedPosts := make([]Post, 0)
 	lastSeenPost := ""
 	seen := map[string]bool{}
 

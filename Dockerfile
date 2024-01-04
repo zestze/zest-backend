@@ -18,4 +18,7 @@ FROM scratch
 
 COPY --from=build /zest-api /zest-api
 
+# need certificates else outgoing https requests fail
+COPY --from=build etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
 CMD ["/zest-api"]

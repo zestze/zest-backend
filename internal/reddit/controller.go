@@ -15,7 +15,7 @@ func Register(r gin.IRouter) {
 }
 func getPosts(c *gin.Context) {
 	var (
-		savedPosts []Child
+		savedPosts []Post
 		err        error
 	)
 	if subreddit := c.DefaultQuery("subreddit", "none"); subreddit != "none" {
@@ -73,7 +73,7 @@ func refresh(c *gin.Context) {
 		return
 	}
 
-	slog.Info("successfully persisted posts", slog.Int("num_rows", len(ids)))
+	slog.Info("successfully persisted posts", slog.Int("num_persisted", len(ids)))
 
 	c.IndentedJSON(http.StatusOK, gin.H{"num_refreshed": len(ids)})
 }

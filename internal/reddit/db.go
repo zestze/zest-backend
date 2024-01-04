@@ -11,7 +11,7 @@ import (
 
 var DB_FILE_NAME = "internal/reddit/store.db"
 
-func PersistPosts(ctx context.Context, savedPosts []Child) ([]int64, error) {
+func PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, error) {
 	db, err := openDB()
 	if err != nil {
 		return nil, err
@@ -21,9 +21,10 @@ func PersistPosts(ctx context.Context, savedPosts []Child) ([]int64, error) {
 	stmt, err := db.PrepareContext(ctx,
 		`INSERT OR IGNORE INTO saved_posts
 		(permalink, subreddit, num_comments, upvote_ratio, ups, score,
-		total_awards_received, suggested_sort)
+		total_awards_received, suggested_sort,
+		title, name, created_utc)
 		VALUES
-		(?, ?, ?, ?, ?, ?, ?, ?)`)
+		(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		slog.Error("error preparing statement", "error", err)
 		return nil, err
@@ -42,7 +43,8 @@ func PersistPosts(ctx context.Context, savedPosts []Child) ([]int64, error) {
 			ExecContext(ctx,
 				post.Permalink, post.Subreddit, post.NumComments,
 				post.UpvoteRatio, post.Ups, post.Score,
-				post.TotalAwardsReceived, post.SuggestedSort)
+				post.TotalAwardsReceived, post.SuggestedSort,
+				post.Title, post.Name, post.CreatedUTC)
 		if err != nil {
 			slog.Error("error persisting post", "permalink", post.Permalink,
 				"error", err)
@@ -60,10 +62,10 @@ func PersistPosts(ctx context.Context, savedPosts []Child) ([]int64, error) {
 		ids[i] = id
 	}
 
-	return ids, nil
+	return ids, tx.Commit()
 }
 
-func GetAllPosts(ctx context.Context) ([]Child, error) {
+func GetAllPosts(ctx context.Context) ([]Post, error) {
 	db, err := openDB()
 	if err != nil {
 		return nil, err
@@ -71,7 +73,7 @@ func GetAllPosts(ctx context.Context) ([]Child, error) {
 	defer db.Close()
 
 	rows, err := db.QueryContext(ctx,
-		`SELECT permalink, subreddit
+		`SELECT permalink, subreddit, score, title, name, created_utc
 		FROM saved_posts
 		ORDER BY ups DESC`)
 	if err != nil {
@@ -80,10 +82,11 @@ func GetAllPosts(ctx context.Context) ([]Child, error) {
 	}
 	defer rows.Close()
 
-	posts := make([]Child, 0)
+	posts := make([]Post, 0)
 	for rows.Next() {
-		var post Child
-		if err := rows.Scan(&post.Permalink, &post.Subreddit); err != nil {
+		var post Post
+		if err := rows.Scan(&post.Permalink, &post.Subreddit,
+			&post.Title, &post.Name, &post.CreatedUTC); err != nil {
 			return nil, err
 		}
 
@@ -120,7 +123,7 @@ func GetSubreddits(ctx context.Context) ([]string, error) {
 	return subreddits, nil
 }
 
-func GetPostsFor(ctx context.Context, subreddit string) ([]Child, error) {
+func GetPostsFor(ctx context.Context, subreddit string) ([]Post, error) {
 	db, err := openDB()
 	if err != nil {
 		return nil, err
@@ -128,7 +131,7 @@ func GetPostsFor(ctx context.Context, subreddit string) ([]Child, error) {
 	defer db.Close()
 
 	rows, err := db.QueryContext(ctx,
-		`SELECT permalink 
+		`SELECT permalink, score, title, name, created_utc
 		FROM saved_posts
 		WHERE subreddit=?
 		ORDER BY ups DESC`,
@@ -139,12 +142,13 @@ func GetPostsFor(ctx context.Context, subreddit string) ([]Child, error) {
 	}
 	defer rows.Close()
 
-	posts := make([]Child, 0)
+	posts := make([]Post, 0)
 	for rows.Next() {
-		post := Child{
+		post := Post{
 			Subreddit: subreddit,
 		}
-		if err := rows.Scan(&post.Permalink); err != nil {
+		if err := rows.Scan(&post.Permalink, &post.Score,
+			&post.Title, &post.Name, &post.CreatedUTC); err != nil {
 			return nil, err
 		}
 
@@ -163,7 +167,7 @@ func openDB() (*sql.DB, error) {
 	return db, nil
 }
 
-func reset() error {
+func Reset() error {
 	db, err := openDB()
 	if err != nil {
 		slog.Error("error resetting table", "error", err)
@@ -182,6 +186,10 @@ func reset() error {
 			ups 				  INTEGER,
 			score 				  INTEGER,
 			total_awards_received INTEGER,
+			suggested_sort 		  TEXT,
+			title				  TEXT,
+			name				  TEXT,
+			created_utc			  REAL
 		);`)
 	if err != nil {
 		slog.Error("error running reset sql", "error", err)

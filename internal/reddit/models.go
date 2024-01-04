@@ -14,21 +14,27 @@ type AuthResponse struct {
 	Scope       string `json:"scope"`
 }
 
-type Child struct {
-	Subreddit           string
-	Permalink           string
+// TODO(zeke): store id!
+type Post struct {
+	Subreddit           string  `json:"subreddit"`
+	Permalink           string  `json:"permalink"`
 	NumComments         int     `json:"num_comments"`
 	UpvoteRatio         float64 `json:"upvote_ratio"`
-	Ups                 int
-	Score               int
-	TotalAwardsReceived int    `json:"total_awards_received"`
-	SuggestedSort       string `json:"suggested_sort"`
+	Ups                 int     `json:"ups"`
+	Score               int     `json:"score"`
+	TotalAwardsReceived int     `json:"total_awards_received"`
+	SuggestedSort       string  `json:"suggested_sort"`
+
+	// recently added
+	Title      string  `json:"title,omitempty"`
+	Name       string  `json:"name,omitempty"`        // appears to be "thing type" + "id"
+	CreatedUTC float64 `json:"created_utc,omitempty"` // appears to be an epoch float
 }
 
 type ApiResponse struct {
 	Data struct {
 		Children []struct {
-			Data Child
+			Data Post
 		}
 		After string
 	}
