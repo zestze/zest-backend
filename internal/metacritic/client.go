@@ -13,6 +13,10 @@ import (
 	"github.com/samber/lo"
 )
 
+var Client = &http.Client{
+	Timeout: 60 * time.Second,
+}
+
 func FetchPosts(ctx context.Context, opts Options) ([]Post, error) {
 	// make network request to metacritic!
 	uri := "https://www.metacritic.com/browse/" + opts.Medium.ToPath() + "/"
@@ -28,8 +32,7 @@ func FetchPosts(ctx context.Context, opts Options) ([]Post, error) {
 	q.Add("page", strconv.Itoa(opts.Page))
 	req.URL.RawQuery = q.Encode()
 
-	// TODO(zeke): don't use DefaultClient!
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := Client.Do(req)
 	if err != nil {
 		slog.Error("error making request", "error", err)
 		return nil, err

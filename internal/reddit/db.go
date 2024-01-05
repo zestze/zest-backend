@@ -85,7 +85,7 @@ func GetAllPosts(ctx context.Context) ([]Post, error) {
 	posts := make([]Post, 0)
 	for rows.Next() {
 		var post Post
-		if err := rows.Scan(&post.Permalink, &post.Subreddit,
+		if err := rows.Scan(&post.Permalink, &post.Subreddit, &post.Score,
 			&post.Title, &post.Name, &post.CreatedUTC); err != nil {
 			return nil, err
 		}

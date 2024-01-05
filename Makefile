@@ -1,4 +1,4 @@
-.PHONY: run fmt test prometheus deploy scrape
+.PHONY: run fmt test prometheus deploy scrape serverless
 
 run:
 	go run ./cmd
@@ -28,3 +28,7 @@ deploy:
 
 scrape:
 	go run ./cmd -f
+
+serverless:
+	doctl serverless deploy serverless
+	# can also test with doctl serverless functions invoke zest/refresh

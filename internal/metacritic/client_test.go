@@ -44,8 +44,8 @@ func mockRoundTrip(t *testing.T) RoundTripFunc {
 }
 
 func TestFetchPosts(t *testing.T) {
-	// mock default client
-	http.DefaultClient.Transport = mockRoundTrip(t)
+	// mock client
+	Client.Transport = mockRoundTrip(t)
 
 	posts, err := FetchPosts(context.Background(), Options{
 		Medium:  TV,
@@ -56,7 +56,7 @@ func TestFetchPosts(t *testing.T) {
 
 	assert.Len(t, posts, 24)
 
-	http.DefaultClient.Transport = http.DefaultTransport
+	Client.Transport = http.DefaultTransport
 }
 
 func TestFetchPosts_Actual(t *testing.T) {

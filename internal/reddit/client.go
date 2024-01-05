@@ -8,11 +8,65 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/samber/lo"
 )
 
-func Authorize(ctx context.Context, client *http.Client, secrets Secrets) (AuthResponse, error) {
+var Client = &http.Client{
+	Timeout: 60 * time.Second,
+}
+
+func Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
+	secrets, err := loadSecrets()
+	if err != nil {
+		return nil, err
+	}
+
+	authData, err := authorize(ctx, Client, secrets)
+	if err != nil {
+		return nil, fmt.Errorf("Fetch(): error during Auth: %w", err)
+	}
+	slog.Info("successfully authenticated")
+
+	slog.Info("going to pull")
+	apiResponse, err := getSavedPosts(ctx, Client, secrets, authData, "")
+	if err != nil {
+		return nil, fmt.Errorf("Fetch(): error during Get: %w", err)
+	}
+
+	toPosts := func() []Post {
+		return lo.Map(apiResponse.Data.Children, func(child struct{ Data Post }, _ int) Post {
+			return child.Data
+		})
+	}
+
+	savedPosts := toPosts()
+
+	seen := map[string]bool{}
+	lastSeenPost := apiResponse.Data.After
+
+	for grabAll && !seen[lastSeenPost] {
+		seen[lastSeenPost] = true
+
+		slog.Info("going to pull", slog.String("lastSeenPost", lastSeenPost))
+		apiResponse, err := getSavedPosts(ctx, Client, secrets, authData, lastSeenPost)
+		if err != nil {
+			return nil, fmt.Errorf("Fetch(): error during Get: %w", err)
+		}
+
+		savedPosts = append(savedPosts, toPosts()...)
+
+		lastSeenPost = apiResponse.Data.After
+	}
+
+	slog.Info("done fetching")
+
+	return savedPosts, nil
+}
+
+func authorize(ctx context.Context, client *http.Client, secrets Secrets) (AuthResponse, error) {
 	postForm := url.Values{}
 	postForm.Add("grant_type", "password")
 	postForm.Add("username", secrets.Username)
@@ -45,7 +99,7 @@ func Authorize(ctx context.Context, client *http.Client, secrets Secrets) (AuthR
 	return authResponse, nil
 }
 
-func GetSavedPosts(ctx context.Context, client *http.Client, secrets Secrets, authData AuthResponse, lastReceived string) (ApiResponse, error) {
+func getSavedPosts(ctx context.Context, client *http.Client, secrets Secrets, authData AuthResponse, lastReceived string) (ApiResponse, error) {
 	fileToRequest := "/user/" + secrets.Username + "/saved?raw_json=1"
 
 	req, err := http.NewRequestWithContext(ctx,
@@ -80,7 +134,7 @@ func GetSavedPosts(ctx context.Context, client *http.Client, secrets Secrets, au
 	return apiResponse, nil
 }
 
-func LoadSecrets() (Secrets, error) {
+func loadSecrets() (Secrets, error) {
 	f, err := os.Open("secrets/config.json")
 	if err != nil {
 		return Secrets{}, fmt.Errorf("LoadSecrets(): error opening file: %w", err)
@@ -92,43 +146,4 @@ func LoadSecrets() (Secrets, error) {
 		return Secrets{}, fmt.Errorf("LoadSecrets(): error decoding file: %w", err)
 	}
 	return secrets, nil
-}
-
-func PullData(ctx context.Context) ([]Post, error) {
-	secrets, err := LoadSecrets()
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{}
-	authData, err := Authorize(ctx, client, secrets)
-	if err != nil {
-		return nil, fmt.Errorf("PullData(): error during Auth: %w", err)
-	}
-
-	slog.Info("successfully authenticated")
-
-	savedPosts := make([]Post, 0)
-	lastSeenPost := ""
-	seen := map[string]bool{}
-
-	for !seen[lastSeenPost] {
-		seen[lastSeenPost] = true
-
-		slog.Info("going to pull", slog.String("lastSeenPost", lastSeenPost))
-		apiResponse, err := GetSavedPosts(ctx, client, secrets, authData, lastSeenPost)
-		if err != nil {
-			return nil, fmt.Errorf("PullData(): error during Get: %w", err)
-		}
-
-		for _, child := range apiResponse.Data.Children {
-			savedPosts = append(savedPosts, child.Data)
-		}
-
-		lastSeenPost = apiResponse.Data.After
-	}
-
-	slog.Info("done fetching")
-
-	return savedPosts, nil
 }

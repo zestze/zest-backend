@@ -53,7 +53,7 @@ func getSubreddits(c *gin.Context) {
 }
 
 func refresh(c *gin.Context) {
-	savedPosts, err := PullData(c)
+	savedPosts, err := Fetch(c, false)
 	if err != nil {
 		slog.Error("error fetching posts", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{

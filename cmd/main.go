@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -61,6 +62,10 @@ func main() {
 		reddit.Register(v1)
 	}
 
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "OK"})
+	})
+
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	err = router.Run(addr)
@@ -89,7 +94,7 @@ func scrapeReddit(ctx context.Context, persistToFile bool) {
 	if err != nil {
 		panic(err)
 	}
-	savedPosts, err := reddit.PullData(ctx)
+	savedPosts, err := reddit.Fetch(ctx, true)
 	if err != nil {
 		panic(err)
 	}

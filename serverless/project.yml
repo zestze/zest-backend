@@ -1,0 +1,24 @@
+parameters: {}
+environment: {}
+packages:
+    - name: zest
+      shared: false
+      environment: {}
+      parameters: {}
+      annotations: {}
+      functions:
+        - name: refresh
+          binary: false
+          main: ""
+          runtime: go:1.20
+          web: true
+          webSecure: false
+          parameters: {}
+          environment: {}
+          annotations: {}
+          limits: {}
+          triggers:
+            - name: refresh-daily
+              sourceType: scheduler
+              sourceDetails:
+                cron: "0 * * * *"
