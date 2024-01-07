@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/zestze/zest-backend/internal/zlog"
 )
 
 func Register(r gin.IRouter) {
@@ -14,6 +16,7 @@ func Register(r gin.IRouter) {
 	g.POST("/refresh", refresh)
 }
 func getPosts(c *gin.Context) {
+	logger := zlog.Logger(c)
 	var (
 		savedPosts []Post
 		err        error
@@ -25,7 +28,7 @@ func getPosts(c *gin.Context) {
 	}
 
 	if err != nil {
-		slog.Error("error loading posts", "error", err)
+		logger.Error("error loading posts", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
 			"error": "internal error",
 		})
@@ -38,9 +41,10 @@ func getPosts(c *gin.Context) {
 }
 
 func getSubreddits(c *gin.Context) {
+	logger := zlog.Logger(c)
 	subreddits, err := GetSubreddits(c)
 	if err != nil {
-		slog.Error("error loading subreddits", "error", err)
+		logger.Error("error loading subreddits", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
 			"error": "internal error",
 		})
@@ -53,27 +57,28 @@ func getSubreddits(c *gin.Context) {
 }
 
 func refresh(c *gin.Context) {
+	logger := zlog.Logger(c)
 	savedPosts, err := Fetch(c, false)
 	if err != nil {
-		slog.Error("error fetching posts", "error", err)
+		logger.Error("error fetching posts", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
 			"error": "internal error",
 		})
 		return
 	}
 
-	slog.Info("successfully fetched posts", slog.Int("num_posts", len(savedPosts)))
+	logger.Info("successfully fetched posts", slog.Int("num_posts", len(savedPosts)))
 
 	ids, err := PersistPosts(c, savedPosts)
 	if err != nil {
-		slog.Error("error persisting posts", "error", err)
+		logger.Error("error persisting posts", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
 			"error": "internal error",
 		})
 		return
 	}
 
-	slog.Info("successfully persisted posts", slog.Int("num_persisted", len(ids)))
+	logger.Info("successfully persisted posts", slog.Int("num_persisted", len(ids)))
 
 	c.IndentedJSON(http.StatusOK, gin.H{"num_refreshed": len(ids)})
 }

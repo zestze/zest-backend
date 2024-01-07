@@ -4,6 +4,7 @@ run:
 	go run ./cmd
 
 fmt:
+	go mod tidy
 	go fmt ./...
 	go vet ./...
 

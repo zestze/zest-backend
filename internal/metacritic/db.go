@@ -7,6 +7,8 @@ import (
 
 	"database/sql"
 
+	"github.com/zestze/zest-backend/internal/zlog"
+
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 )
@@ -14,7 +16,8 @@ import (
 var DB_FILE_NAME = "internal/metacritic/store.db"
 
 func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
-	db, err := openDB()
+	logger := zlog.Logger(ctx)
+	db, err := openDB(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -26,14 +29,14 @@ func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 		VALUES
 		(?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
-		slog.Error("error preparing statement", "error", err)
+		logger.Error("error preparing statement", "error", err)
 		return nil, err
 	}
 	defer stmt.Close()
 
 	tx, err := db.Begin()
 	if err != nil {
-		slog.Error("error beginning transaction", "error", err)
+		logger.Error("error beginning transaction", "error", err)
 		return nil, err
 	}
 
@@ -45,7 +48,7 @@ func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 				post.Description, post.ReleaseDate.Unix(),
 				post.Medium, post.RequestedAt.Unix())
 		if err != nil {
-			slog.Error("error persisting post", "title", post.Title,
+			logger.Error("error persisting post", "title", post.Title,
 				"error", err)
 			tx.Rollback()
 			return nil, err
@@ -53,7 +56,7 @@ func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 
 		id, err := result.LastInsertId()
 		if err != nil {
-			slog.Error("error fetching id", "error", err)
+			logger.Error("error fetching id", "error", err)
 			tx.Rollback()
 			return nil, err
 		}
@@ -65,7 +68,8 @@ func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 }
 
 func GetPosts(ctx context.Context, opts Options) ([]Post, error) {
-	db, err := openDB()
+	logger := zlog.Logger(ctx)
+	db, err := openDB(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +83,7 @@ func GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 		ORDER BY score DESC`,
 		opts.Medium, lowerBound, upperBound)
 	if err != nil {
-		slog.Error("error querying for rows", "error", err)
+		logger.Error("error querying for rows", "error", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -104,19 +108,20 @@ func GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	return posts, nil
 }
 
-func openDB() (*sql.DB, error) {
+func openDB(logger *slog.Logger) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", DB_FILE_NAME)
 	if err != nil {
-		slog.Error("error opening db", "error", err)
+		logger.Error("error opening db", "error", err)
 		return nil, err
 	}
 	return db, nil
 }
 
-func reset() error {
-	db, err := openDB()
+func Reset(ctx context.Context) error {
+	logger := zlog.Logger(ctx)
+	db, err := openDB(logger)
 	if err != nil {
-		slog.Error("error resetting table", "error", err)
+		logger.Error("error resetting table", "error", err)
 		return err
 	}
 	defer db.Close()
@@ -135,7 +140,7 @@ func reset() error {
 		);
 	`)
 	if err != nil {
-		slog.Error("error running reset sql", "error", err)
+		logger.Error("error running reset sql", "error", err)
 		return err
 	}
 	return nil

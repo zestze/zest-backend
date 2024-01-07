@@ -10,11 +10,11 @@ import (
 
 func TestDB(t *testing.T) {
 	DB_FILE_NAME = "test.db"
-	reset()
+	ctx := context.Background()
+	Reset(ctx)
 
 	http.DefaultClient.Transport = mockRoundTrip(t)
 
-	ctx := context.Background()
 	options := Options{
 		Medium:  TV,
 		MinYear: 2021,

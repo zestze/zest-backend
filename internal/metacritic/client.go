@@ -3,11 +3,12 @@ package metacritic
 import (
 	"context"
 	"io"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/zestze/zest-backend/internal/zlog"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/samber/lo"
@@ -18,11 +19,12 @@ var Client = &http.Client{
 }
 
 func FetchPosts(ctx context.Context, opts Options) ([]Post, error) {
+	logger := zlog.Logger(ctx)
 	// make network request to metacritic!
 	uri := "https://www.metacritic.com/browse/" + opts.Medium.ToPath() + "/"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		slog.Error("error generating request", "error", err)
+		logger.Error("error generating request", "error", err)
 		return nil, err
 	}
 
@@ -34,14 +36,14 @@ func FetchPosts(ctx context.Context, opts Options) ([]Post, error) {
 
 	resp, err := Client.Do(req)
 	if err != nil {
-		slog.Error("error making request", "error", err)
+		logger.Error("error making request", "error", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	cards, err := Extract(ctx, resp.Body)
 	if err != nil {
-		slog.Error("error extracting product card info from html body", "error", err)
+		logger.Error("error extracting product card info from html body", "error", err)
 		return nil, err
 	}
 
@@ -64,7 +66,7 @@ func Extract(ctx context.Context, body io.ReadCloser) ([]ProductCard, error) {
 	// can do _info for a closer example (to the content I'm looking for!)
 	cards := make([]ProductCard, 0)
 	doc.Find(".c-finderProductCard_container").Each(func(_ int, s *goquery.Selection) {
-		if c, ok := newProductCard(s); ok {
+		if c, ok := newProductCard(ctx, s); ok {
 			cards = append(cards, c)
 		}
 	})
@@ -74,14 +76,15 @@ func Extract(ctx context.Context, body io.ReadCloser) ([]ProductCard, error) {
 
 // figured this out by pulling down index.html and looking and inspecting the cards.
 // can see what the `Properties` are and figure out the rest from there!`
-func newProductCard(s *goquery.Selection) (ProductCard, bool) {
+func newProductCard(ctx context.Context, s *goquery.Selection) (ProductCard, bool) {
+	logger := zlog.Logger(ctx)
 	href, ok := s.Attr("href")
 	if !ok {
-		slog.Warn("did not find href attribute in card")
+		logger.Warn("did not find href attribute in card")
 		return ProductCard{}, false
 	}
 
-	logger := slog.With("href", href)
+	logger = logger.With("href", href)
 
 	title, ok := s.Find(".c-finderProductCard_title").First().Attr("data-title")
 	if !ok {

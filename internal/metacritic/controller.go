@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/zestze/zest-backend/internal/zlog"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,22 +15,24 @@ func Register(r gin.IRouter) {
 }
 
 func getPostsForAPI(c *gin.Context) {
+	logger := zlog.Logger(c)
+
 	opts := Options{}
 	if err := c.BindQuery(&opts); err != nil {
-		slog.Error("error binding query for getPosts", "error", err)
+		logger.Error("error binding query for getPosts", "error", err)
 		c.IndentedJSON(http.StatusBadRequest, gin.H{
 			"error": "please provide correct query params",
 		})
 		return
 	} else if !opts.IsValid() {
-		slog.Error("options not set correctly", "options", opts)
+		logger.Error("options not set correctly", "options", opts)
 		c.IndentedJSON(http.StatusBadRequest, gin.H{
 			"error": "please provide correct query params",
 		})
 		return
 	}
 
-	logger := slog.With(opts.Group())
+	logger = logger.With(opts.Group())
 
 	logger.Info("going to fetch posts")
 	posts, err := GetPosts(c, opts)

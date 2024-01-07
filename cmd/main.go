@@ -14,6 +14,7 @@ import (
 	cors "github.com/rs/cors/wrapper/gin"
 	"github.com/zestze/zest-backend/internal/metacritic"
 	"github.com/zestze/zest-backend/internal/reddit"
+	"github.com/zestze/zest-backend/internal/requestid"
 	"go.opentelemetry.io/otel"
 
 	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -55,6 +56,7 @@ func main() {
 
 	router := gin.Default()
 	router.Use(cors.Default())
+	router.Use(requestid.New())
 
 	{
 		v1 := router.Group("v1")
@@ -90,7 +92,7 @@ func newTracer() (*sdktrace.TracerProvider, error) {
 }
 
 func scrapeReddit(ctx context.Context, persistToFile bool) {
-	err := reddit.Reset()
+	err := reddit.Reset(ctx)
 	if err != nil {
 		panic(err)
 	}

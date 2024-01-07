@@ -12,6 +12,8 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/samber/lo"
+
+	"github.com/zestze/zest-backend/internal/zlog"
 )
 
 var Client = &http.Client{
@@ -19,6 +21,7 @@ var Client = &http.Client{
 }
 
 func Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
+	logger := zlog.Logger(ctx)
 	secrets, err := loadSecrets()
 	if err != nil {
 		return nil, err
@@ -28,9 +31,9 @@ func Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Fetch(): error during Auth: %w", err)
 	}
-	slog.Info("successfully authenticated")
+	logger.Info("successfully authenticated")
 
-	slog.Info("going to pull")
+	logger.Info("going to pull")
 	apiResponse, err := getSavedPosts(ctx, Client, secrets, authData, "")
 	if err != nil {
 		return nil, fmt.Errorf("Fetch(): error during Get: %w", err)
@@ -50,7 +53,7 @@ func Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
 	for grabAll && !seen[lastSeenPost] {
 		seen[lastSeenPost] = true
 
-		slog.Info("going to pull", slog.String("lastSeenPost", lastSeenPost))
+		logger.Info("going to pull", slog.String("lastSeenPost", lastSeenPost))
 		apiResponse, err := getSavedPosts(ctx, Client, secrets, authData, lastSeenPost)
 		if err != nil {
 			return nil, fmt.Errorf("Fetch(): error during Get: %w", err)
@@ -61,7 +64,7 @@ func Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
 		lastSeenPost = apiResponse.Data.After
 	}
 
-	slog.Info("done fetching")
+	logger.Info("done fetching")
 
 	return savedPosts, nil
 }
