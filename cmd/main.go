@@ -36,7 +36,10 @@ func main() {
 
 	if cli.ForceScrape {
 		// TODO(zeke): make this more configurable!
-		scrapeReddit(context.Background(), false)
+		//scrapeReddit(context.Background(), false)
+		for _, m := range metacritic.AvailableMediums {
+			scrapeMetacritic(m, 1995, 5)
+		}
 		return
 	}
 
@@ -150,7 +153,7 @@ func scrapeMetacritic(medium metacritic.Medium, startYear int, numPages int) {
 
 			// ensure we don't get blacklisted
 			logger.Info("going to sleep")
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 	}
 }

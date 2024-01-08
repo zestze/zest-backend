@@ -67,8 +67,16 @@ func Get(c *gin.Context) string {
 
 // From grabs the request id from a context.Context
 // only works if c.Set() is called ahead of time
-func From(c context.Context) string {
-	return c.Value(contextRequestID).(string)
+func From(c context.Context) (string, bool) {
+	v := c.Value(contextRequestID)
+	if v == nil {
+		return "", false
+	}
+	r, ok := v.(string)
+	if !ok {
+		return "", false
+	}
+	return r, true
 }
 
 // Option for queue system

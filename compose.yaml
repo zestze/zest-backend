@@ -27,8 +27,43 @@ services:
     networks:
       - monitoring
       - default
+    depends_on:
+      - zest-api
+  nginx:
+    image: nginx:latest
+    ports:
+      - 443:443
+      - 80:80
+    restart: always
+    volumes:
+      - ./nginx-conf:/etc/nginx/conf.d:ro
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - ./certbot/www/:/var/www/certbot:ro
+    networks:
+      - monitoring
+      - default
+    depends_on:
+      - zest-api
+  certbot:
+    profiles: [ "certs" ]
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - ./certbot/www/:/var/www/certbot:rw
+    networks:
+      - monitoring
+      - default
+    depends_on:
+      - nginx
+    command: certonly --webroot --webroot-path=/var/www/certbot --email reynaezekiel@gmail.com --agree-tos --no-eff-email -d api.zekereyna.dev
+
 volumes:
   prometheus-data:
+  certbot-etc:
+  certbot-var:
 
 
 networks:

@@ -25,7 +25,7 @@ prometheus:
 deploy:
 	sudo docker compose build
 	sudo docker save zest-backend-zest-api > zest-api.tar
-	scp zest-api.tar root@165.22.6.21:~/workspace/zest-api.tar
+	scp zest-api.tar droplet:~/workspace/zest-api.tar
 
 scrape:
 	go run ./cmd -f

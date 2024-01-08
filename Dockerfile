@@ -7,6 +7,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
+# TODO(zeke): maybe clean this up by introducing .dockerignore and .gitignore?
 COPY cmd/*.go ./cmd/
 COPY internal/reddit/*.go ./internal/reddit/
 COPY internal/metacritic/*.go ./internal/metacritic/
