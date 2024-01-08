@@ -17,8 +17,18 @@ packages:
           environment: {}
           annotations: {}
           limits: {}
+          # the following triggers don't work per https://github.com/digitalocean/doctl/issues/1474
+          # but keeping for reference!
           triggers:
-            - name: refresh-daily
+            - name: refresh-reddit-hourly
               sourceType: scheduler
               sourceDetails:
                 cron: "0 * * * *"
+                withBody:
+                  resource: 'reddit'
+            - name: refresh-metacritic-daily
+              sourceType: scheduler
+              sourceDetails:
+                cron: "0 8 * * *"
+                withBody:
+                  resource: 'metacritic'

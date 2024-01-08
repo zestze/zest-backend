@@ -14,7 +14,7 @@ import (
 func Register(r gin.IRouter) {
 	g := r.Group("/metacritic")
 	g.GET("/posts", getPostsForAPI)
-	g.GET("/refresh", refresh)
+	g.POST("/refresh", refresh)
 }
 
 func getPostsForAPI(c *gin.Context) {

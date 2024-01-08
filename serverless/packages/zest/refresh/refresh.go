@@ -12,10 +12,15 @@ type Response struct {
 }
 */
 
-func Main(ctx context.Context) {
-	fmt.Println("going to refresh server")
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"http://164.90.252.244/v1/reddit/refresh", nil)
+type Event struct {
+	// Resource should be set to `metacritic` or `reddit`
+	Resource string `json:"resource"`
+}
+
+func Main(ctx context.Context, event Event) {
+	uri := "https://api.zekereyna.dev/v1/" + event.Resource + "/refresh"
+	fmt.Println("going to refresh server at: ", uri)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, nil)
 	// TODO(zeke): use structured logging like slog!
 	if err != nil {
 		fmt.Println("error making request: ", err)
