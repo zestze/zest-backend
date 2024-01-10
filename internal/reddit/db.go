@@ -9,12 +9,15 @@ import (
 	_ "github.com/ncruces/go-sqlite3/embed"
 
 	"github.com/zestze/zest-backend/internal/zlog"
+	"github.com/zestze/zest-backend/internal/ztrace"
 )
 
 var DB_FILE_NAME = "internal/reddit/store.db"
 
 func PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, error) {
 	logger := zlog.Logger(ctx)
+	ctx, span := ztrace.Start(ctx, "SQL reddit.Persist")
+	defer span.End()
 	db, err := openDB(logger)
 	if err != nil {
 		return nil, err
@@ -70,6 +73,8 @@ func PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, error) {
 
 func GetAllPosts(ctx context.Context) ([]Post, error) {
 	logger := zlog.Logger(ctx)
+	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
+	defer span.End()
 	db, err := openDB(logger)
 	if err != nil {
 		return nil, err
@@ -102,6 +107,8 @@ func GetAllPosts(ctx context.Context) ([]Post, error) {
 
 func GetSubreddits(ctx context.Context) ([]string, error) {
 	logger := zlog.Logger(ctx)
+	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
+	defer span.End()
 	db, err := openDB(logger)
 	if err != nil {
 		return nil, err
@@ -130,6 +137,8 @@ func GetSubreddits(ctx context.Context) ([]string, error) {
 
 func GetPostsFor(ctx context.Context, subreddit string) ([]Post, error) {
 	logger := zlog.Logger(ctx)
+	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
+	defer span.End()
 	db, err := openDB(logger)
 	if err != nil {
 		return nil, err

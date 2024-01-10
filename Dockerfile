@@ -13,6 +13,7 @@ COPY internal/reddit/*.go ./internal/reddit/
 COPY internal/metacritic/*.go ./internal/metacritic/
 COPY internal/requestid/*.go ./internal/requestid/
 COPY internal/zlog/*.go ./internal/zlog/
+COPY internal/ztrace/*.go ./internal/ztrace/
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
      -v -o /zest-api ./cmd/

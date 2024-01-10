@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/zestze/zest-backend/internal/zlog"
+	"github.com/zestze/zest-backend/internal/ztrace"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
@@ -17,6 +18,8 @@ var DB_FILE_NAME = "internal/metacritic/store.db"
 
 func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 	logger := zlog.Logger(ctx)
+	ctx, span := ztrace.Start(ctx, "SQL metacritic.Persist")
+	defer span.End()
 	db, err := openDB(logger)
 	if err != nil {
 		return nil, err
@@ -69,6 +72,8 @@ func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 
 func GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	logger := zlog.Logger(ctx)
+	ctx, span := ztrace.Start(ctx, "SQL metacritic.Get")
+	defer span.End()
 	db, err := openDB(logger)
 	if err != nil {
 		return nil, err

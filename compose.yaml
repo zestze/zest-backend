@@ -1,5 +1,6 @@
 services:
   zest-api:
+    container_name: zest
     build: .
     ports:
       - 8080:8080
@@ -17,7 +18,9 @@ services:
         source: ./secrets/config.json
         target: /secrets/config.json
   prometheus:
+    profiles: [ "monitoring" ]
     image: prom/prometheus:latest
+    container_name: prometheus
     restart: unless-stopped
     ports:
       - 9090:9090
@@ -29,7 +32,37 @@ services:
       - default
     depends_on:
       - zest-api
+  grafana:
+    profiles: [ "monitoring" ]
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - monitoring
+      - default
+    depends_on:
+      - zest-api
+  tempo:
+    profiles: [ "monitoring" ]
+    image: grafana/tempo:latest
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - tempo-data:/tmp/tempo
+      - ./tempo.yaml:/etc/tempo.yaml
+    ports:
+      - 3200:3200 # tempo
+      - 9095:9095 # tempo grpc
+      - 4317:4317 # otlp grpc
+      - 4318:4318 # otlp http
+    depends_on:
+      - zest-api
   nginx:
+    profiles: [ "prod" ]
     image: nginx:latest
     ports:
       - 443:443
@@ -64,6 +97,8 @@ volumes:
   prometheus-data:
   certbot-etc:
   certbot-var:
+  grafana-storage:
+  tempo-data:
 
 
 networks:
