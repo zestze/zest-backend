@@ -3,3 +3,6 @@ secrets/
 *.tar
 digitalocean.pat
 nginx-conf/
+**/.db
+**/.db.bk
+**/_posts.json
