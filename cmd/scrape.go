@@ -12,12 +12,14 @@ import (
 	"github.com/zestze/zest-backend/internal/reddit"
 )
 
-func scrapeReddit(ctx context.Context, persistToFile bool) {
-	err := reddit.Reset(ctx)
-	if err != nil {
-		panic(err)
+func scrapeReddit(ctx context.Context, persistToFile, reset bool) {
+	if reset {
+		if err := reddit.Reset(ctx); err != nil {
+			panic(err)
+		}
 	}
-	savedPosts, err := reddit.Fetch(ctx, true)
+
+	savedPosts, err := reddit.Fetch(ctx, reset)
 	if err != nil {
 		panic(err)
 	}

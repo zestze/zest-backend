@@ -1,6 +1,6 @@
 services:
   zest-api:
-    container_name: zest
+    container_name: zest-api
     build: .
     ports:
       - 8080:8080

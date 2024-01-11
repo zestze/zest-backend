@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -42,6 +43,10 @@ func New(ctx context.Context, opts Options) (*sdktrace.TracerProvider, error) {
 }
 
 func Start(ctx context.Context, name string) (context.Context, trace.Span) {
+	if tracer == nil {
+		tracer = noop.NewTracerProvider().Tracer("zest-api")
+	}
+
 	// gin middleware oddity (this is just a hack for now)
 	// the span is stored in the request's context exclusively
 	if c, ok := ctx.(*gin.Context); ok {

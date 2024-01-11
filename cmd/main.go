@@ -14,44 +14,50 @@ import (
 	"github.com/zestze/zest-backend/internal/requestid"
 	"github.com/zestze/zest-backend/internal/ztrace"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"go.opentelemetry.io/otel"
 
 	"github.com/alecthomas/kong"
 )
 
-// TODO(zeke): move tracing to separate pkg!
-var tracer = otel.Tracer("zest-api")
-
 var cli struct {
-	Port         int    `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
-	ForceScrape  bool   `short:"f" help:"force a scrape operation"`
-	OtlpEndpoint string `short:"e" env:"OTLP_ENDPOINT" default:"tempo:4318" help:"otlp endpoint for trace exporters"`
-	ServiceName  string `short:"s" env:"SERVICE_NAME" default:"zest"`
+	Server ServerCmd `cmd:"" help:"run server"`
+	Scrape ScrapeCmd `cmd:"" help:"scrape the internet"`
 }
 
-func main() {
-	kong.Parse(&cli)
+type ScrapeCmd struct {
+	Target string `arg:"" enum:"reddit,metacritic" help:"where to scrape from"`
+	Reset  bool   `help:"if the db should be reset"`
+}
 
-	if cli.ForceScrape {
-		// TODO(zeke): make this more configurable!
-		//scrapeReddit(context.Background(), false)
+func (r *ScrapeCmd) Run() error {
+	ctx := context.Background()
+	if r.Target == "reddit" {
+		scrapeReddit(ctx, true, false)
+	} else if r.Target == "metacritic" {
 		for _, m := range metacritic.AvailableMediums {
 			scrapeMetacritic(m, 1995, 5)
 		}
-		return
 	}
+	return nil
+}
 
-	addr := ":" + strconv.Itoa(cli.Port)
+type ServerCmd struct {
+	Port         int    `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
+	OtlpEndpoint string `short:"e" env:"OTLP_ENDPOINT" default:"tempo:4318" help:"otlp endpoint for trace exporters"`
+	ServiceName  string `short:"n" env:"SERVICE_NAME" default:"zest"`
+}
+
+func (r *ServerCmd) Run() error {
+	ctx := context.Background()
+	addr := ":" + strconv.Itoa(r.Port)
 	slog.Info("going to start on " + addr)
 
-	ctx := context.Background()
 	tp, err := ztrace.New(ctx, ztrace.Options{
-		ServiceName:   cli.ServiceName,
-		OTLPEndppoint: cli.OtlpEndpoint,
+		ServiceName:   r.ServiceName,
+		OTLPEndppoint: r.OtlpEndpoint,
 	})
 	if err != nil {
 		slog.Error("error setting up tracer", "error", err)
-		return
+		return err
 	}
 	defer func() {
 		if err := tp.Shutdown(ctx); err != nil {
@@ -62,7 +68,7 @@ func main() {
 	router := gin.Default()
 	router.Use(cors.Default())
 	router.Use(requestid.New())
-	router.Use(otelgin.Middleware(cli.ServiceName,
+	router.Use(otelgin.Middleware(r.ServiceName,
 		otelgin.WithSpanNameFormatter(func(r *http.Request) string {
 			return "HTTP " + r.Method + " " + r.URL.Path
 		})))
@@ -83,4 +89,10 @@ func main() {
 	if err != nil {
 		slog.Error("critical error, shutting down", "error", err)
 	}
+	return nil
+}
+
+func main() {
+	ctx := kong.Parse(&cli)
+	ctx.FatalIfErrorf(ctx.Run())
 }

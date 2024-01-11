@@ -1,7 +1,10 @@
-.PHONY: run fmt test prometheus deploy scrape serverless
+.PHONY: run fmt test prometheus deploy scrape serverless help
 
 run:
-	go run ./cmd
+	go run ./cmd server
+
+help:
+	go run ./cmd --help
 
 fmt:
 	go mod tidy
@@ -28,7 +31,7 @@ deploy:
 	scp zest-api.tar droplet:~/workspace/zest-api.tar
 
 scrape:
-	go run ./cmd -f
+	go run ./cmd --scrape reddit
 
 serverless:
 	doctl serverless deploy serverless
