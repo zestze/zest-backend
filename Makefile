@@ -29,9 +29,10 @@ deploy:
 	sudo docker compose build
 	sudo docker save zest-backend-zest-api > zest-api.tar
 	scp zest-api.tar droplet:~/workspace/zest-api.tar
+	ssh droplet 'make -C workspace deploy'
 
 scrape:
-	go run ./cmd --scrape reddit
+	go run ./cmd scrape reddit
 
 serverless:
 	doctl serverless deploy serverless

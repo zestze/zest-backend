@@ -182,18 +182,18 @@ func (s Store) Reset(ctx context.Context) error {
 	_, err := s.db.Exec(`
 		DROP TABLE IF EXISTS saved_posts;
 		CREATE TABLE IF NOT EXISTS saved_posts (
-			id					  INTEGER PRIMARY KEY AUTOINCREMENT,
-			permalink 			  TEXT UNIQUE,
-			subreddit 			  TEXT,
-			num_comments 		  INTEGER,
-			upvote_ratio 		  REAL,
-			ups 				  INTEGER,
-			score 				  INTEGER,
+			id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+			permalink             TEXT UNIQUE,
+			subreddit             TEXT,
+			num_comments          INTEGER,
+			upvote_ratio          REAL,
+			ups                   INTEGER,
+			score                 INTEGER,
 			total_awards_received INTEGER,
-			suggested_sort 		  TEXT,
-			title				  TEXT,
-			name				  TEXT,
-			created_utc			  REAL
+			suggested_sort        TEXT,
+			title                 TEXT,
+			name                  TEXT,
+			created_utc           REAL
 		);`)
 	if err != nil {
 		logger.Error("error running reset sql", "error", err)

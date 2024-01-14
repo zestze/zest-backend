@@ -132,13 +132,13 @@ func (s Store) Reset(ctx context.Context) error {
 	_, err := s.db.Exec(`
 		DROP TABLE IF EXISTS posts;
 		CREATE TABLE IF NOT EXISTS posts (
-			id 			 INTEGER PRIMARY KEY AUTOINCREMENT,
-			title 		 TEXT UNIQUE,
-			href		 TEXT,
-			score		 INTEGER,
+			id           INTEGER PRIMARY KEY AUTOINCREMENT,
+			title        TEXT UNIQUE,
+			href         TEXT,
+			score        INTEGER,
 			description  TEXT,
 			release_date INTEGER,
-			medium 		 VARCHAR(10),
+			medium       VARCHAR(10),
 			requested_at INTEGER
 		);
 	`)
