@@ -2,7 +2,9 @@ package ztrace
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
@@ -58,6 +60,20 @@ func Start(ctx context.Context, name string) (context.Context, trace.Span) {
 
 func SpanName(r *http.Request) string {
 	return "HTTP " + r.Method + " " + r.URL.Path
+}
+
+type Shutdowner interface {
+	Shutdown(ctx context.Context) error
+}
+
+// often the parent context will already have been canceled
+// so set our own internal timeout for shutting down the tracer provider
+func ShutDown(ctx context.Context, s Shutdowner, timeout time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if err := s.Shutdown(ctx); err != nil {
+		slog.Error("error shutting down tracing", "error", err)
+	}
 }
 
 func newTraceProvider(exporter sdktrace.SpanExporter, opts Options) (*sdktrace.TracerProvider, error) {

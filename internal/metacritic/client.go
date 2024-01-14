@@ -14,12 +14,6 @@ import (
 	"github.com/samber/lo"
 )
 
-/*
-var Client = &http.Client{
-	Timeout: 60 * time.Second,
-}
-*/
-
 type Client struct {
 	*http.Client
 }

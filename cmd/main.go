@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -14,6 +18,7 @@ import (
 	"github.com/zestze/zest-backend/internal/requestid"
 	"github.com/zestze/zest-backend/internal/ztrace"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/alecthomas/kong"
 )
@@ -59,11 +64,7 @@ func (r *ServerCmd) Run() error {
 		slog.Error("error setting up tracer", "error", err)
 		return err
 	}
-	defer func() {
-		if err := tp.Shutdown(ctx); err != nil {
-			slog.Error("error shutting down tracer provider", "error", err)
-		}
-	}()
+	defer ztrace.ShutDown(ctx, tp, 2*time.Second)
 
 	router := gin.Default()
 	router.Use(cors.Default())
@@ -71,33 +72,61 @@ func (r *ServerCmd) Run() error {
 	router.Use(otelgin.Middleware(r.ServiceName,
 		otelgin.WithSpanNameFormatter(ztrace.SpanName)))
 
-	v1 := router.Group("v1")
-	mService, err := metacritic.New()
-	if err != nil {
-		slog.Error("error setting up metacritic service", "error", err)
-		return err
-	}
-	mService.Register(v1)
-	defer mService.Close()
+	{
 
-	rService, err := reddit.New()
-	if err != nil {
-		slog.Error("error setting up reddit service", "error", err)
-		return err
-	}
-	rService.Register(v1)
-	defer rService.Close()
+		v1 := router.Group("v1")
+		mService, err := metacritic.New()
+		if err != nil {
+			slog.Error("error setting up metacritic service", "error", err)
+			return err
+		}
+		mService.Register(v1)
+		defer mService.Close()
 
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "OK"})
+		rService, err := reddit.New()
+		if err != nil {
+			slog.Error("error setting up reddit service", "error", err)
+			return err
+		}
+		rService.Register(v1)
+		defer rService.Close()
+	}
+
+	{
+		router.GET("/health", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"status": "OK"})
+		})
+
+		router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	}
+
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: router,
+	}
+
+	// logic for graceful shutdown
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
+	defer stop()
+
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
+	})
+	g.Go(func() error {
+		<-ctx.Done()
+		stop()
+		return srv.Shutdown(ctx)
 	})
 
-	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-
-	err = router.Run(addr)
-	if err != nil {
-		slog.Error("critical error, shutting down", "error", err)
+	if err = g.Wait(); err != nil {
+		slog.Error("error from server", "error", err)
 	}
+	slog.Info("gracefully shutting down")
+
 	return nil
 }
 

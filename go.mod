@@ -31,6 +31,7 @@ require (
 require (
 	github.com/google/uuid v1.5.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.46.1
+	golang.org/x/sync v0.5.0
 )
 
 require (
