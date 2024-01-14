@@ -16,25 +16,38 @@ import (
 	"github.com/zestze/zest-backend/internal/zlog"
 )
 
-var Client = &http.Client{
-	Timeout: 60 * time.Second,
+var SECRETS_FILE_NAME = "secrets/config.json"
+
+type Client struct {
+	Client  *http.Client
+	secrets Secrets
 }
 
-func Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
-	logger := zlog.Logger(ctx)
-	secrets, err := loadSecrets()
+func NewClient(roundTripper http.RoundTripper) (Client, error) {
+	secrets, err := loadSecrets(SECRETS_FILE_NAME)
 	if err != nil {
-		return nil, err
+		return Client{}, err
 	}
+	return Client{
+		Client: &http.Client{
+			Transport: roundTripper,
+			Timeout:   60 * time.Second,
+		},
+		secrets: secrets,
+	}, nil
+}
 
-	authData, err := authorize(ctx, Client, secrets)
+func (c Client) Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
+	logger := zlog.Logger(ctx)
+
+	authData, err := c.authorize(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Fetch(): error during Auth: %w", err)
 	}
 	logger.Info("successfully authenticated")
 
 	logger.Info("going to pull")
-	apiResponse, err := getSavedPosts(ctx, Client, secrets, authData, "")
+	apiResponse, err := c.getSavedPosts(ctx, authData, "")
 	if err != nil {
 		return nil, fmt.Errorf("Fetch(): error during Get: %w", err)
 	}
@@ -54,7 +67,7 @@ func Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
 		seen[lastSeenPost] = true
 
 		logger.Info("going to pull", slog.String("lastSeenPost", lastSeenPost))
-		apiResponse, err := getSavedPosts(ctx, Client, secrets, authData, lastSeenPost)
+		apiResponse, err := c.getSavedPosts(ctx, authData, lastSeenPost)
 		if err != nil {
 			return nil, fmt.Errorf("Fetch(): error during Get: %w", err)
 		}
@@ -69,11 +82,11 @@ func Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
 	return savedPosts, nil
 }
 
-func authorize(ctx context.Context, client *http.Client, secrets Secrets) (AuthResponse, error) {
+func (c Client) authorize(ctx context.Context) (AuthResponse, error) {
 	postForm := url.Values{}
 	postForm.Add("grant_type", "password")
-	postForm.Add("username", secrets.Username)
-	postForm.Add("password", secrets.Password)
+	postForm.Add("username", c.secrets.Username)
+	postForm.Add("password", c.secrets.Password)
 
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodPost,
@@ -84,10 +97,10 @@ func authorize(ctx context.Context, client *http.Client, secrets Secrets) (AuthR
 		return AuthResponse{}, fmt.Errorf("Authorize(): error constructing request: %w", err)
 	}
 
-	req.SetBasicAuth(secrets.ClientId, secrets.ClientSecret)
+	req.SetBasicAuth(c.secrets.ClientId, c.secrets.ClientSecret)
 	req.Header.Add("User-Agent", "simpleRedditClient/0.1 by ZestyZeke")
 
-	resp, err := client.Do(req)
+	resp, err := c.Client.Do(req)
 	if err != nil {
 		return AuthResponse{}, fmt.Errorf("Authorize(): error making request: %w", err)
 	} else if resp.StatusCode != http.StatusOK {
@@ -102,8 +115,8 @@ func authorize(ctx context.Context, client *http.Client, secrets Secrets) (AuthR
 	return authResponse, nil
 }
 
-func getSavedPosts(ctx context.Context, client *http.Client, secrets Secrets, authData AuthResponse, lastReceived string) (ApiResponse, error) {
-	fileToRequest := "/user/" + secrets.Username + "/saved?raw_json=1"
+func (c Client) getSavedPosts(ctx context.Context, authData AuthResponse, lastReceived string) (ApiResponse, error) {
+	fileToRequest := "/user/" + c.secrets.Username + "/saved?raw_json=1"
 
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodGet,
@@ -121,7 +134,7 @@ func getSavedPosts(ctx context.Context, client *http.Client, secrets Secrets, au
 		req.URL.RawQuery = q.Encode()
 	}
 
-	resp, err := client.Do(req)
+	resp, err := c.Client.Do(req)
 	if err != nil {
 		return ApiResponse{}, fmt.Errorf("GetSavedPosts(): error making request: %w", err)
 	} else if resp.StatusCode != http.StatusOK {
@@ -137,8 +150,8 @@ func getSavedPosts(ctx context.Context, client *http.Client, secrets Secrets, au
 	return apiResponse, nil
 }
 
-func loadSecrets() (Secrets, error) {
-	f, err := os.Open("secrets/config.json")
+func loadSecrets(fname string) (Secrets, error) {
+	f, err := os.Open(fname)
 	if err != nil {
 		return Secrets{}, fmt.Errorf("LoadSecrets(): error opening file: %w", err)
 	}

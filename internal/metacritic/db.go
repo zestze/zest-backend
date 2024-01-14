@@ -2,7 +2,7 @@ package metacritic
 
 import (
 	"context"
-	"log/slog"
+	"io"
 	"time"
 
 	"database/sql"
@@ -16,17 +16,27 @@ import (
 
 var DB_FILE_NAME = "internal/metacritic/store.db"
 
-func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
+type Store struct {
+	io.Closer
+	db *sql.DB
+}
+
+func NewStore(dbName string) (Store, error) {
+	db, err := openDB(dbName)
+	if err != nil {
+		return Store{}, err
+	}
+	return Store{
+		db: db,
+	}, nil
+}
+
+func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Persist")
 	defer span.End()
-	db, err := openDB(logger)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
-	stmt, err := db.PrepareContext(ctx,
+	stmt, err := s.db.PrepareContext(ctx,
 		`INSERT OR IGNORE INTO posts 
 		(title, href, score, description, release_date, medium, requested_at)
 		VALUES
@@ -37,7 +47,7 @@ func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 	}
 	defer stmt.Close()
 
-	tx, err := db.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		logger.Error("error beginning transaction", "error", err)
 		return nil, err
@@ -70,18 +80,13 @@ func PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 	return ids, tx.Commit()
 }
 
-func GetPosts(ctx context.Context, opts Options) ([]Post, error) {
+func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Get")
 	defer span.End()
-	db, err := openDB(logger)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
 	lowerBound, upperBound := opts.RangeAsEpoch()
-	rows, err := db.QueryContext(ctx,
+	rows, err := s.db.QueryContext(ctx,
 		`SELECT title, href, score, description, release_date, requested_at
 		FROM posts 
 		WHERE medium=? and ? <= release_date and release_date <= ?
@@ -113,25 +118,18 @@ func GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	return posts, nil
 }
 
-func openDB(logger *slog.Logger) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", DB_FILE_NAME)
+func openDB(dbName string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
-		logger.Error("error opening db", "error", err)
 		return nil, err
 	}
 	return db, nil
 }
 
-func Reset(ctx context.Context) error {
+func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
-	db, err := openDB(logger)
-	if err != nil {
-		logger.Error("error resetting table", "error", err)
-		return err
-	}
-	defer db.Close()
 
-	_, err = db.Exec(`
+	_, err := s.db.Exec(`
 		DROP TABLE IF EXISTS posts;
 		CREATE TABLE IF NOT EXISTS posts (
 			id 			 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -149,4 +147,8 @@ func Reset(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (s Store) Close() error {
+	return s.db.Close()
 }

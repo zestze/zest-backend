@@ -13,13 +13,17 @@ import (
 )
 
 func scrapeReddit(ctx context.Context, persistToFile, reset bool) {
+	svc, err := reddit.New()
+	if err != nil {
+		panic(err)
+	}
 	if reset {
-		if err := reddit.Reset(ctx); err != nil {
+		if err := svc.Store.Reset(ctx); err != nil {
 			panic(err)
 		}
 	}
 
-	savedPosts, err := reddit.Fetch(ctx, reset)
+	savedPosts, err := svc.Client.Fetch(ctx, reset)
 	if err != nil {
 		panic(err)
 	}
@@ -38,7 +42,7 @@ func scrapeReddit(ctx context.Context, persistToFile, reset bool) {
 		}
 	}
 
-	ids, err := reddit.PersistPosts(ctx, savedPosts)
+	ids, err := svc.Store.PersistPosts(ctx, savedPosts)
 	if err != nil {
 		panic(err)
 	}
@@ -48,12 +52,16 @@ func scrapeReddit(ctx context.Context, persistToFile, reset bool) {
 
 func scrapeMetacritic(medium metacritic.Medium, startYear int, numPages int) {
 	ctx := context.Background()
+	svc, err := metacritic.New()
+	if err != nil {
+		panic(err)
+	}
 	for year := startYear; year <= time.Now().Year(); year++ {
 		for i := 1; i <= numPages; i++ {
 
 			logger := slog.With("medium", medium, "year", year, "page", i)
 			logger.Info("going to fetch posts from metacritic")
-			posts, err := metacritic.FetchPosts(ctx, metacritic.Options{
+			posts, err := svc.Client.FetchPosts(ctx, metacritic.Options{
 				Medium:  medium,
 				MinYear: year,
 				MaxYear: year,
@@ -64,7 +72,7 @@ func scrapeMetacritic(medium metacritic.Medium, startYear int, numPages int) {
 			}
 
 			logger.Info("going to persist posts to sqlite")
-			ids, err := metacritic.PersistPosts(ctx, posts)
+			ids, err := svc.Store.PersistPosts(ctx, posts)
 			if err != nil {
 				panic(err)
 			}

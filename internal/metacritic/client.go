@@ -14,11 +14,26 @@ import (
 	"github.com/samber/lo"
 )
 
+/*
 var Client = &http.Client{
 	Timeout: 60 * time.Second,
 }
+*/
 
-func FetchPosts(ctx context.Context, opts Options) ([]Post, error) {
+type Client struct {
+	*http.Client
+}
+
+func NewClient(rt http.RoundTripper) Client {
+	return Client{
+		Client: &http.Client{
+			Timeout:   60 * time.Second,
+			Transport: rt,
+		},
+	}
+}
+
+func (client *Client) FetchPosts(ctx context.Context, opts Options) ([]Post, error) {
 	logger := zlog.Logger(ctx)
 	// make network request to metacritic!
 	uri := "https://www.metacritic.com/browse/" + opts.Medium.ToPath() + "/"
@@ -34,7 +49,7 @@ func FetchPosts(ctx context.Context, opts Options) ([]Post, error) {
 	q.Add("page", strconv.Itoa(opts.Page))
 	req.URL.RawQuery = q.Encode()
 
-	resp, err := Client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		logger.Error("error making request", "error", err)
 		return nil, err

@@ -2,6 +2,7 @@ package ztrace
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
@@ -53,6 +54,10 @@ func Start(ctx context.Context, name string) (context.Context, trace.Span) {
 		return tracer.Start(c.Request.Context(), name)
 	}
 	return tracer.Start(ctx, name)
+}
+
+func SpanName(r *http.Request) string {
+	return "HTTP " + r.Method + " " + r.URL.Path
 }
 
 func newTraceProvider(exporter sdktrace.SpanExporter, opts Options) (*sdktrace.TracerProvider, error) {

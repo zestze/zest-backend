@@ -1,6 +1,7 @@
 package metacritic
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -11,13 +12,34 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Register(r gin.IRouter) {
-	g := r.Group("/metacritic")
-	g.GET("/posts", getPostsForAPI)
-	g.POST("/refresh", refresh)
+type Controller struct {
+	io.Closer
+	Client Client
+	Store  Store
 }
 
-func getPostsForAPI(c *gin.Context) {
+func New() (Controller, error) {
+	store, err := NewStore(DB_FILE_NAME)
+	if err != nil {
+		return Controller{}, err
+	}
+	return Controller{
+		Client: NewClient(http.DefaultTransport),
+		Store:  store,
+	}, nil
+}
+
+func (svc Controller) Close() error {
+	return svc.Store.Close()
+}
+
+func (svc Controller) Register(r gin.IRouter) {
+	g := r.Group("/metacritic")
+	g.GET("/posts", svc.getPostsForAPI)
+	g.POST("/refresh", svc.refresh)
+}
+
+func (svc Controller) getPostsForAPI(c *gin.Context) {
 	logger := zlog.Logger(c)
 
 	opts := Options{}
@@ -38,7 +60,7 @@ func getPostsForAPI(c *gin.Context) {
 	logger = logger.With(opts.Group())
 
 	logger.Info("going to fetch posts")
-	posts, err := GetPosts(c, opts)
+	posts, err := svc.Store.GetPosts(c, opts)
 	if err != nil {
 		slog.Error("error fetching posts", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
@@ -54,7 +76,7 @@ func getPostsForAPI(c *gin.Context) {
 	})
 }
 
-func refresh(c *gin.Context) {
+func (svc Controller) refresh(c *gin.Context) {
 	logger := zlog.Logger(c)
 
 	currYear := time.Now().UTC().Year()
@@ -67,7 +89,7 @@ func refresh(c *gin.Context) {
 				slog.Int("page", i))
 
 			logger.Info("fetching posts")
-			posts, err := FetchPosts(c, Options{
+			posts, err := svc.Client.FetchPosts(c, Options{
 				Medium:  m,
 				MinYear: currYear,
 				MaxYear: currYear,
@@ -82,7 +104,7 @@ func refresh(c *gin.Context) {
 			}
 
 			logger.Info("persisting posts")
-			ids, err := PersistPosts(c, posts)
+			ids, err := svc.Store.PersistPosts(c, posts)
 			if err != nil {
 				logger.Error("error persisting posts", "error", err)
 				c.IndentedJSON(http.StatusInternalServerError, gin.H{

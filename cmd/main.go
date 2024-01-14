@@ -69,15 +69,24 @@ func (r *ServerCmd) Run() error {
 	router.Use(cors.Default())
 	router.Use(requestid.New())
 	router.Use(otelgin.Middleware(r.ServiceName,
-		otelgin.WithSpanNameFormatter(func(r *http.Request) string {
-			return "HTTP " + r.Method + " " + r.URL.Path
-		})))
+		otelgin.WithSpanNameFormatter(ztrace.SpanName)))
 
-	{
-		v1 := router.Group("v1")
-		metacritic.Register(v1)
-		reddit.Register(v1)
+	v1 := router.Group("v1")
+	mService, err := metacritic.New()
+	if err != nil {
+		slog.Error("error setting up metacritic service", "error", err)
+		return err
 	}
+	mService.Register(v1)
+	defer mService.Close()
+
+	rService, err := reddit.New()
+	if err != nil {
+		slog.Error("error setting up reddit service", "error", err)
+		return err
+	}
+	rService.Register(v1)
+	defer rService.Close()
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})

@@ -2,7 +2,6 @@ package metacritic
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,26 +10,28 @@ import (
 func TestDB(t *testing.T) {
 	DB_FILE_NAME = "test.db"
 	ctx := context.Background()
-	Reset(ctx)
+	store, err := NewStore(DB_FILE_NAME)
+	assert.NoError(t, err)
+	defer store.Close()
 
-	http.DefaultClient.Transport = mockRoundTrip(t)
+	store.Reset(ctx)
+
+	client := NewClient(mockRoundTrip(t))
 
 	options := Options{
 		Medium:  TV,
 		MinYear: 2021,
 		MaxYear: 2023,
 	}
-	posts, err := FetchPosts(ctx, options)
+	posts, err := client.FetchPosts(ctx, options)
 
 	assert.NoError(t, err)
 
-	ids, err := PersistPosts(ctx, posts)
+	ids, err := store.PersistPosts(ctx, posts)
 	assert.NoError(t, err)
 	assert.Len(t, ids, len(posts))
 
-	persistedPosts, err := GetPosts(ctx, options)
+	persistedPosts, err := store.GetPosts(ctx, options)
 	assert.NoError(t, err)
 	assert.Len(t, persistedPosts, len(posts))
-
-	http.DefaultClient.Transport = http.DefaultTransport
 }

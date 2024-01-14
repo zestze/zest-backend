@@ -3,7 +3,7 @@ package reddit
 import (
 	"context"
 	"database/sql"
-	"log/slog"
+	"io"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
@@ -14,17 +14,27 @@ import (
 
 var DB_FILE_NAME = "internal/reddit/store.db"
 
-func PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, error) {
+type Store struct {
+	io.Closer
+	db *sql.DB
+}
+
+func NewStore(dbName string) (Store, error) {
+	db, err := openDB(dbName)
+	if err != nil {
+		return Store{}, err
+	}
+	return Store{
+		db: db,
+	}, nil
+}
+
+func (s Store) PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Persist")
 	defer span.End()
-	db, err := openDB(logger)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
-	stmt, err := db.PrepareContext(ctx,
+	stmt, err := s.db.PrepareContext(ctx,
 		`INSERT OR IGNORE INTO saved_posts
 		(permalink, subreddit, num_comments, upvote_ratio, ups, score,
 		total_awards_received, suggested_sort,
@@ -37,7 +47,7 @@ func PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, error) {
 	}
 	defer stmt.Close()
 
-	tx, err := db.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		logger.Error("error beginning transaction", "error", err)
 		return nil, err
@@ -71,17 +81,12 @@ func PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, error) {
 	return ids, tx.Commit()
 }
 
-func GetAllPosts(ctx context.Context) ([]Post, error) {
+func (s Store) GetAllPosts(ctx context.Context) ([]Post, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
 	defer span.End()
-	db, err := openDB(logger)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
-	rows, err := db.QueryContext(ctx,
+	rows, err := s.db.QueryContext(ctx,
 		`SELECT permalink, subreddit, score, title, name, created_utc
 		FROM saved_posts
 		ORDER BY ups DESC`)
@@ -105,17 +110,12 @@ func GetAllPosts(ctx context.Context) ([]Post, error) {
 	return posts, nil
 }
 
-func GetSubreddits(ctx context.Context) ([]string, error) {
+func (s Store) GetSubreddits(ctx context.Context) ([]string, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
 	defer span.End()
-	db, err := openDB(logger)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
-	rows, err := db.QueryContext(ctx,
+	rows, err := s.db.QueryContext(ctx,
 		`SELECT DISTINCT(subreddit)
 		FROM saved_posts
 		ORDER BY subreddit asc`)
@@ -135,17 +135,12 @@ func GetSubreddits(ctx context.Context) ([]string, error) {
 	return subreddits, nil
 }
 
-func GetPostsFor(ctx context.Context, subreddit string) ([]Post, error) {
+func (s Store) GetPostsFor(ctx context.Context, subreddit string) ([]Post, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
 	defer span.End()
-	db, err := openDB(logger)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
-	rows, err := db.QueryContext(ctx,
+	rows, err := s.db.QueryContext(ctx,
 		`SELECT permalink, score, title, name, created_utc
 		FROM saved_posts
 		WHERE subreddit=?
@@ -173,25 +168,18 @@ func GetPostsFor(ctx context.Context, subreddit string) ([]Post, error) {
 	return posts, nil
 }
 
-func openDB(logger *slog.Logger) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", DB_FILE_NAME)
+func openDB(dbName string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
-		logger.Error("error opening db", "error", err)
 		return nil, err
 	}
 	return db, nil
 }
 
-func Reset(ctx context.Context) error {
+func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
-	db, err := openDB(logger)
-	if err != nil {
-		logger.Error("error resetting table", "error", err)
-		return err
-	}
-	defer db.Close()
 
-	_, err = db.Exec(`
+	_, err := s.db.Exec(`
 		DROP TABLE IF EXISTS saved_posts;
 		CREATE TABLE IF NOT EXISTS saved_posts (
 			id					  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -211,4 +199,8 @@ func Reset(ctx context.Context) error {
 		logger.Error("error running reset sql", "error", err)
 	}
 	return nil
+}
+
+func (s Store) Close() error {
+	return s.db.Close()
 }

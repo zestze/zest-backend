@@ -45,9 +45,9 @@ func mockRoundTrip(t *testing.T) RoundTripFunc {
 
 func TestFetchPosts(t *testing.T) {
 	// mock client
-	Client.Transport = mockRoundTrip(t)
+	client := NewClient(mockRoundTrip(t))
 
-	posts, err := FetchPosts(context.Background(), Options{
+	posts, err := client.FetchPosts(context.Background(), Options{
 		Medium:  TV,
 		MinYear: 2021,
 		MaxYear: 2023,
@@ -55,13 +55,12 @@ func TestFetchPosts(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Len(t, posts, 24)
-
-	Client.Transport = http.DefaultTransport
 }
 
 func TestFetchPosts_Actual(t *testing.T) {
 	t.Skip("skipping bc integration test")
-	posts, err := FetchPosts(context.Background(), Options{
+	client := NewClient(http.DefaultTransport)
+	posts, err := client.FetchPosts(context.Background(), Options{
 		Medium:  TV,
 		MinYear: 2021,
 		MaxYear: 2023,
