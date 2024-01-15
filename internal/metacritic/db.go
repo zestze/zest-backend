@@ -8,10 +8,8 @@ import (
 	"database/sql"
 
 	"github.com/zestze/zest-backend/internal/zlog"
+	"github.com/zestze/zest-backend/internal/zql"
 	"github.com/zestze/zest-backend/internal/ztrace"
-
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 var DB_FILE_NAME = "internal/metacritic/store.db"
@@ -22,7 +20,7 @@ type Store struct {
 }
 
 func NewStore(dbName string) (Store, error) {
-	db, err := openDB(dbName)
+	db, err := zql.Sqlite3(dbName)
 	if err != nil {
 		return Store{}, err
 	}
@@ -118,14 +116,6 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	return posts, nil
 }
 
-func openDB(dbName string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dbName)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
 func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
 
@@ -140,8 +130,7 @@ func (s Store) Reset(ctx context.Context) error {
 			release_date INTEGER,
 			medium       VARCHAR(10),
 			requested_at INTEGER
-		);
-	`)
+		);`)
 	if err != nil {
 		logger.Error("error running reset sql", "error", err)
 		return err

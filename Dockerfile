@@ -14,9 +14,11 @@ COPY internal/metacritic/*.go ./internal/metacritic/
 COPY internal/requestid/*.go ./internal/requestid/
 COPY internal/zlog/*.go ./internal/zlog/
 COPY internal/ztrace/*.go ./internal/ztrace/
+COPY internal/zql/*.go ./internal/zql/
+COPY internal/user/*.go ./internal/user/
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
-     -v -o /zest-api ./cmd/
+     -tags=jsoniter -v -o /zest-api ./cmd/
 
 FROM scratch
 

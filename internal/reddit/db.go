@@ -9,6 +9,7 @@ import (
 	_ "github.com/ncruces/go-sqlite3/embed"
 
 	"github.com/zestze/zest-backend/internal/zlog"
+	"github.com/zestze/zest-backend/internal/zql"
 	"github.com/zestze/zest-backend/internal/ztrace"
 )
 
@@ -20,7 +21,7 @@ type Store struct {
 }
 
 func NewStore(dbName string) (Store, error) {
-	db, err := openDB(dbName)
+	db, err := zql.Sqlite3(dbName)
 	if err != nil {
 		return Store{}, err
 	}
@@ -166,14 +167,6 @@ func (s Store) GetPostsFor(ctx context.Context, subreddit string) ([]Post, error
 	}
 
 	return posts, nil
-}
-
-func openDB(dbName string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dbName)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
 }
 
 func (s Store) Reset(ctx context.Context) error {

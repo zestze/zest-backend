@@ -16,6 +16,7 @@ import (
 	"github.com/zestze/zest-backend/internal/metacritic"
 	"github.com/zestze/zest-backend/internal/reddit"
 	"github.com/zestze/zest-backend/internal/requestid"
+	"github.com/zestze/zest-backend/internal/user"
 	"github.com/zestze/zest-backend/internal/ztrace"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"golang.org/x/sync/errgroup"
@@ -49,6 +50,7 @@ type ServerCmd struct {
 	Port         int    `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
 	OtlpEndpoint string `short:"e" env:"OTLP_ENDPOINT" default:"tempo:4317" help:"otlp endpoint for trace exporters"`
 	ServiceName  string `short:"n" env:"SERVICE_NAME" default:"zest"`
+	WithAuth     bool   `env:"WITH_AUTH" help:"enables auth protection"`
 }
 
 func (r *ServerCmd) Run() error {
@@ -72,8 +74,26 @@ func (r *ServerCmd) Run() error {
 	router.Use(otelgin.Middleware(r.ServiceName,
 		otelgin.WithSpanNameFormatter(ztrace.SpanName)))
 
+	uService, err := user.New()
+	if err != nil {
+		slog.Error("error setting up user service", "error", err)
+		return err
+	}
+	uService.Register(router)
+	defer uService.Close()
+
 	{
 		v1 := router.Group("v1")
+		signingKey, err := user.NewSigningKey()
+		if err != nil {
+			slog.Error("error setting up signing key", "error", err)
+			return err
+		}
+		if r.WithAuth {
+			slog.Info("enabling auth protection")
+			v1.Use(user.Auth(signingKey))
+		}
+
 		mService, err := metacritic.New()
 		if err != nil {
 			slog.Error("error setting up metacritic service", "error", err)

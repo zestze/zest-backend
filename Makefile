@@ -1,7 +1,7 @@
 .PHONY: run fmt test prometheus deploy scrape serverless help
 
 run:
-	go run ./cmd server
+	go run -tags=jsoniter ./cmd server
 
 help:
 	go run ./cmd --help

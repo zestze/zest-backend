@@ -15,8 +15,8 @@ services:
         source: ./internal/metacritic/store.db
         target: /internal/metacritic/store.db
       - type: bind
-        source: ./secrets/config.json
-        target: /secrets/config.json
+        source: ./secrets/
+        target: /secrets/
   prometheus:
     profiles: [ "monitoring" ]
     image: prom/prometheus:latest
@@ -51,6 +51,7 @@ services:
     image: grafana/tempo:latest
     container_name: tempo
     command: [ "-config.file=/etc/tempo.yaml" ]
+    restart: unless-stopped
     volumes:
       - tempo-data:/tmp/tempo
       - ./configs/tempo.yaml:/etc/tempo.yaml
