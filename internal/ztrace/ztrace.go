@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
@@ -96,13 +96,8 @@ func newTraceProvider(exporter sdktrace.SpanExporter, opts Options) (*sdktrace.T
 }
 
 func newOTLPExporter(ctx context.Context, otlpEndpoint string) (sdktrace.SpanExporter, error) {
-	return otlptracehttp.New(ctx, otlptracehttp.WithInsecure(), otlptracehttp.WithEndpoint(otlpEndpoint))
-	/*
-		driver := otlpgrpc.NewDriver(
-			otlpgrpc.WithInsecure(), // insecure is fine, localhost operations
-			otlpgrpc.WithEndpoint(otlpEndpoint),
-			otlpgrpc.WithDialOption(otlpgrpc.WithBlock()), // TODO(Zeke): not super sure what this does!
-		)
-		return otlp.NewExporter(ctx, driver)
-	*/
+	return otlptracegrpc.New(ctx,
+		otlptracegrpc.WithInsecure(), // insecure is fine, everything is on the local docker network
+		otlptracegrpc.WithEndpoint(otlpEndpoint))
+	//return otlptracehttp.New(ctx, otlptracehttp.WithInsecure(), otlptracehttp.WithEndpoint(otlpEndpoint))
 }

@@ -47,7 +47,7 @@ func (r *ScrapeCmd) Run() error {
 
 type ServerCmd struct {
 	Port         int    `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
-	OtlpEndpoint string `short:"e" env:"OTLP_ENDPOINT" default:"tempo:4318" help:"otlp endpoint for trace exporters"`
+	OtlpEndpoint string `short:"e" env:"OTLP_ENDPOINT" default:"tempo:4317" help:"otlp endpoint for trace exporters"`
 	ServiceName  string `short:"n" env:"SERVICE_NAME" default:"zest"`
 }
 
@@ -73,7 +73,6 @@ func (r *ServerCmd) Run() error {
 		otelgin.WithSpanNameFormatter(ztrace.SpanName)))
 
 	{
-
 		v1 := router.Group("v1")
 		mService, err := metacritic.New()
 		if err != nil {
