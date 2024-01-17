@@ -47,10 +47,10 @@ func (r *ScrapeCmd) Run() error {
 }
 
 type ServerCmd struct {
-	Port         int    `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
-	OtlpEndpoint string `short:"e" env:"OTLP_ENDPOINT" default:"tempo:4317" help:"otlp endpoint for trace exporters"`
-	ServiceName  string `short:"n" env:"SERVICE_NAME" default:"zest"`
-	WithAuth     bool   `env:"WITH_AUTH" help:"enables auth protection"`
+	Port          int           `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
+	OtlpEndpoint  string        `short:"e" env:"OTLP_ENDPOINT" default:"tempo:4317" help:"otlp endpoint for trace exporters"`
+	ServiceName   string        `short:"n" env:"SERVICE_NAME" default:"zest"`
+	SessionLength time.Duration `env:"SESSION_LENGTH" default:"15m" help:"maximum length of user session"`
 }
 
 func (r *ServerCmd) Run() error {
@@ -74,7 +74,7 @@ func (r *ServerCmd) Run() error {
 	router.Use(otelgin.Middleware(r.ServiceName,
 		otelgin.WithSpanNameFormatter(ztrace.SpanName)))
 
-	session := user.NewSession()
+	session := user.NewSession(r.SessionLength)
 	uService, err := user.New(session)
 	if err != nil {
 		slog.Error("error setting up user service", "error", err)
@@ -85,10 +85,7 @@ func (r *ServerCmd) Run() error {
 
 	{
 		v1 := router.Group("v1")
-		if r.WithAuth {
-			slog.Info("enabling auth protection")
-			v1.Use(user.Auth(session))
-		}
+		v1.Use(user.Auth(session))
 
 		mService, err := metacritic.New()
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"github.com/zestze/zest-backend/internal/zlog"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -16,18 +17,18 @@ var CookieName = "zest-token"
 
 type Controller struct {
 	io.Closer
-	Store   Store
-	session Session
+	Store Store
+	sess  Session
 }
 
-func New(session Session) (Controller, error) {
+func New(sess Session) (Controller, error) {
 	store, err := NewStore(DB_FILE_NAME)
 	if err != nil {
 		return Controller{}, err
 	}
 	return Controller{
-		Store:   store,
-		session: session,
+		Store: store,
+		sess:  sess,
 	}, nil
 }
 
@@ -76,9 +77,16 @@ func (svc Controller) Login(c *gin.Context) {
 		return
 	}
 
-	expiresAt := time.Now().UTC().Add(maxAge)
-	token := svc.session.Start(user, expiresAt)
-	svc.setCookie(c, token, expiresAt)
+	token, err := svc.sess.Start(c, user, c.ClientIP())
+	if err != nil {
+		logger.Error("error when starting session for user", "error", err)
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{
+			"error": "internal error when starting user session",
+		})
+		return
+	}
+
+	svc.setCookie(c, token, time.Now().Add(svc.sess.MaxAge))
 	c.JSON(http.StatusOK, gin.H{
 		"status": "ok",
 	})
@@ -123,6 +131,7 @@ func (svc Controller) Signup(c *gin.Context) {
 }
 
 func (svc Controller) Refresh(c *gin.Context) {
+	logger := zlog.Logger(c)
 	token, err := c.Cookie(CookieName)
 	if err != nil && errors.Is(err, http.ErrNoCookie) { // only possible err
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -131,17 +140,31 @@ func (svc Controller) Refresh(c *gin.Context) {
 		return
 	}
 
-	user, ok := svc.session.GetUser(token)
-	if !ok {
+	clientIP := c.ClientIP()
+	user, err := svc.sess.GetUser(c, token, clientIP)
+	if err != nil && (errors.Is(err, redis.Nil) || errors.Is(err, ErrInvalidIP)) {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"error": "invalid token",
 		})
 		return
+	} else if err != nil {
+		logger.Error("error grabbing user session", "error", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error": "internal error",
+		})
+		return
 	}
 
-	expiresAt := time.Now().UTC().Add(maxAge)
-	newToken := svc.session.Start(user, expiresAt)
-	svc.setCookie(c, newToken, expiresAt)
+	newToken, err := svc.sess.Start(c, user, clientIP)
+	if err != nil {
+		logger.Error("error starting user session", "error", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error": "internal error",
+		})
+		return
+	}
+
+	svc.setCookie(c, newToken, time.Now().Add(svc.sess.MaxAge))
 	c.JSON(http.StatusOK, gin.H{
 		"status": "ok",
 	})

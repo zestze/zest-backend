@@ -7,6 +7,8 @@ services:
     networks:
       - monitoring
       - default
+    environment:
+      - WITH_AUTH=true
     volumes:
       - type: bind
         source: ./internal/reddit/store.db
@@ -17,6 +19,17 @@ services:
       - type: bind
         source: ./secrets/
         target: /secrets/
+    depends_on:
+      - redis
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    networks:
+      - monitoring
+      - default
   prometheus:
     profiles: [ "monitoring" ]
     image: prom/prometheus:latest
