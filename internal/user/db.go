@@ -30,22 +30,31 @@ func NewStore(dbName string) (Store, error) {
 	}, nil
 }
 
-func (s Store) GetPassword(ctx context.Context, username string) (string, error) {
+type User struct {
+	ID       int
+	Username string
+	Password string
+}
+
+// can also get user by ID!
+func (s Store) GetUser(ctx context.Context, username string) (User, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL user.Get")
 	defer span.End()
 
-	var password string
+	user := User{
+		Username: username,
+	}
 	err := s.db.QueryRowContext(ctx,
-		`SELECT password
+		`SELECT id, password 
 		FROM users
 		WHERE username=?`, username).
-		Scan(&password)
+		Scan(&user.ID, &user.Password)
 
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("encountered internal error when scanning for password", "error", err)
 	}
-	return password, err
+	return user, err
 }
 
 func (s Store) PersistUser(ctx context.Context, username, password string, salt int) (int64, error) {

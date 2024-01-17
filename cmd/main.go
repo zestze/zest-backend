@@ -74,24 +74,20 @@ func (r *ServerCmd) Run() error {
 	router.Use(otelgin.Middleware(r.ServiceName,
 		otelgin.WithSpanNameFormatter(ztrace.SpanName)))
 
-	uService, err := user.New()
+	session := user.NewSession()
+	uService, err := user.New(session)
 	if err != nil {
 		slog.Error("error setting up user service", "error", err)
 		return err
 	}
-	uService.Register(router)
 	defer uService.Close()
+	uService.Register(router)
 
 	{
 		v1 := router.Group("v1")
-		signingKey, err := user.NewSigningKey()
-		if err != nil {
-			slog.Error("error setting up signing key", "error", err)
-			return err
-		}
 		if r.WithAuth {
 			slog.Info("enabling auth protection")
-			v1.Use(user.Auth(signingKey))
+			v1.Use(user.Auth(session))
 		}
 
 		mService, err := metacritic.New()
@@ -99,16 +95,16 @@ func (r *ServerCmd) Run() error {
 			slog.Error("error setting up metacritic service", "error", err)
 			return err
 		}
-		mService.Register(v1)
 		defer mService.Close()
+		mService.Register(v1)
 
 		rService, err := reddit.New()
 		if err != nil {
 			slog.Error("error setting up reddit service", "error", err)
 			return err
 		}
-		rService.Register(v1)
 		defer rService.Close()
+		rService.Register(v1)
 	}
 
 	{

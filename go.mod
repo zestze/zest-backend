@@ -28,7 +28,6 @@ require (
 )
 
 require (
-	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/google/uuid v1.5.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.46.1
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.21.0
