@@ -2,6 +2,7 @@ package metacritic
 
 import (
 	"context"
+	"errors"
 
 	"database/sql"
 
@@ -25,10 +26,12 @@ func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) 
 	defer span.End()
 
 	stmt, err := s.db.PrepareContext(ctx,
-		`INSERT OR IGNORE INTO metacritic_posts 
+		`INSERT INTO metacritic_posts 
 		(title, href, score, description, released, medium, created_at)
 		VALUES
-		(?, ?, ?, ?, ?, ?, ?)`)
+		($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT DO NOTHING
+		RETURNING id`)
 	if err != nil {
 		logger.Error("error preparing statement", "error", err)
 		return nil, err
@@ -41,28 +44,24 @@ func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) 
 		return nil, err
 	}
 
-	ids := make([]int64, len(posts))
-	for i, post := range posts {
-		result, err := tx.Stmt(stmt).
-			ExecContext(ctx,
+	ids := make([]int64, 0, len(posts))
+	for _, post := range posts {
+		var id int64
+		err := tx.Stmt(stmt).
+			QueryRowContext(ctx,
 				post.Title, post.Href, post.Score,
 				post.Description, post.ReleaseDate.UTC(),
-				post.Medium, post.RequestedAt.UTC())
-		if err != nil {
+				post.Medium, post.RequestedAt.UTC()).
+			Scan(&id)
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			continue
+		} else if err != nil {
 			logger.Error("error persisting post", "title", post.Title,
 				"error", err)
 			tx.Rollback()
 			return nil, err
 		}
-
-		id, err := result.LastInsertId()
-		if err != nil {
-			logger.Error("error fetching id", "error", err)
-			tx.Rollback()
-			return nil, err
-		}
-
-		ids[i] = id
+		ids = append(ids, id)
 	}
 
 	return ids, tx.Commit()
@@ -77,7 +76,7 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT title, href, score, description, release_date, requested_at
 		FROM metacritic_posts 
-		WHERE medium=? and ? <= release_date and release_date <= ?
+		WHERE medium = $1 and $2 <= release_date and release_date <= $3
 		ORDER BY score DESC`,
 		opts.Medium, lowerBound, upperBound)
 	if err != nil {
