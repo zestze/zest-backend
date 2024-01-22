@@ -1,4 +1,10 @@
-.PHONY: run fmt test prometheus deploy scrape serverless help
+.PHONY: run fmt test prometheus deploy scrape serverless help up build
+
+build:
+	sudo docker compose --profile monitoring build
+
+up: build
+	sudo docker compose --profile monitoring up -d
 
 run:
 	go run -tags=jsoniter ./cmd server

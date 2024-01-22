@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	ErrInvalidIP error = errors.New("invalid IP")
+	ErrInvalidIP error  = errors.New("invalid IP")
+	UserIdKey    string = "zest.user_id"
 )
 
 type item struct {
@@ -109,19 +110,22 @@ func Auth(sess Session) gin.HandlerFunc {
 			return
 		}
 
-		ok, err := sess.IsActive(c, token, c.ClientIP())
-		if err != nil && !errors.Is(err, ErrInvalidIP) {
+		user, err := sess.GetUser(c, token, c.ClientIP())
+		if err != nil && (errors.Is(err, ErrInvalidIP) || errors.Is(err, redis.Nil)) {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid token",
+			})
+			return
+		} else if err != nil {
 			zlog.Logger(c).Error("error when validating session", "error", err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"error": "internal error",
 			})
 			return
-		} else if err != nil || !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid token",
-			})
-			return
 		}
+
+		// insert user id into context
+		c.Set(UserIdKey, user.ID)
 
 		c.Next()
 	}

@@ -4,30 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"io"
 	"log/slog"
-	"time"
 
 	"github.com/zestze/zest-backend/internal/zlog"
-	"github.com/zestze/zest-backend/internal/zql"
 	"github.com/zestze/zest-backend/internal/ztrace"
 )
 
-var DB_FILE_NAME = "internal/user/store.db"
-
 type Store struct {
-	io.Closer
 	db *sql.DB
 }
 
-func NewStore(dbName string) (Store, error) {
-	db, err := zql.Sqlite3(dbName)
-	if err != nil {
-		return Store{}, err
-	}
+func NewStore(db *sql.DB) Store {
 	return Store{
 		db: db,
-	}, nil
+	}
 }
 
 type User struct {
@@ -46,9 +36,9 @@ func (s Store) GetUser(ctx context.Context, username string) (User, error) {
 		Username: username,
 	}
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, password 
+		`SELECT id, password
 		FROM users
-		WHERE username=?`, username).
+		WHERE username=$1`, username).
 		Scan(&user.ID, &user.Password)
 
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -62,20 +52,16 @@ func (s Store) PersistUser(ctx context.Context, username, password string, salt 
 	ctx, span := ztrace.Start(ctx, "SQL user.Persist")
 	defer span.End()
 
-	result, err := s.db.ExecContext(ctx,
+	var id int64
+	err := s.db.QueryRowContext(ctx,
 		`INSERT INTO users
-		(username, password, salt, created_at)
-		VALUES 
-		(?, ?, ?, ?)
-	`, username, password, salt, time.Now().Unix())
+		(username, password, salt) 
+		VALUES ($1, $2, $3)
+		ON CONFLICT DO NOTHING
+		RETURNING id`,
+		username, password, salt).Scan(&id)
 	if err != nil {
 		logger.Error("error persisting user", "error", err)
-		return 0, err
-	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		logger.Error("error getting id after persisting user", "error", err)
 		return 0, err
 	}
 	return id, nil
@@ -98,8 +84,4 @@ func (s Store) Reset(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-func (s Store) Close() error {
-	return s.db.Close()
 }

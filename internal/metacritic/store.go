@@ -2,31 +2,21 @@ package metacritic
 
 import (
 	"context"
-	"io"
-	"time"
 
 	"database/sql"
 
 	"github.com/zestze/zest-backend/internal/zlog"
-	"github.com/zestze/zest-backend/internal/zql"
 	"github.com/zestze/zest-backend/internal/ztrace"
 )
 
-var DB_FILE_NAME = "internal/metacritic/store.db"
-
 type Store struct {
-	io.Closer
 	db *sql.DB
 }
 
-func NewStore(dbName string) (Store, error) {
-	db, err := zql.Sqlite3(dbName)
-	if err != nil {
-		return Store{}, err
-	}
+func NewStore(db *sql.DB) Store {
 	return Store{
 		db: db,
-	}, nil
+	}
 }
 
 func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
@@ -35,8 +25,8 @@ func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) 
 	defer span.End()
 
 	stmt, err := s.db.PrepareContext(ctx,
-		`INSERT OR IGNORE INTO posts 
-		(title, href, score, description, release_date, medium, requested_at)
+		`INSERT OR IGNORE INTO metacritic_posts 
+		(title, href, score, description, released, medium, created_at)
 		VALUES
 		(?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
@@ -56,8 +46,8 @@ func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) 
 		result, err := tx.Stmt(stmt).
 			ExecContext(ctx,
 				post.Title, post.Href, post.Score,
-				post.Description, post.ReleaseDate.Unix(),
-				post.Medium, post.RequestedAt.Unix())
+				post.Description, post.ReleaseDate.UTC(),
+				post.Medium, post.RequestedAt.UTC())
 		if err != nil {
 			logger.Error("error persisting post", "title", post.Title,
 				"error", err)
@@ -86,7 +76,7 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	lowerBound, upperBound := opts.RangeAsEpoch()
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT title, href, score, description, release_date, requested_at
-		FROM posts 
+		FROM metacritic_posts 
 		WHERE medium=? and ? <= release_date and release_date <= ?
 		ORDER BY score DESC`,
 		opts.Medium, lowerBound, upperBound)
@@ -98,16 +88,11 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 
 	posts := make([]Post, 0)
 	for rows.Next() {
-		var (
-			releaseDateAsEpoch, requestedAtAsEpoch int64
-			post                                   Post
-		)
+		var post Post
 		if err := rows.Scan(&post.Title, &post.Href, &post.Score, &post.Description,
-			&releaseDateAsEpoch, &requestedAtAsEpoch); err != nil {
+			&post.ReleaseDate, &post.RequestedAt); err != nil {
 			return nil, err
 		}
-		post.ReleaseDate = time.Unix(releaseDateAsEpoch, 0).UTC()
-		post.RequestedAt = time.Unix(requestedAtAsEpoch, 0).UTC()
 		post.Medium = opts.Medium
 
 		posts = append(posts, post)
@@ -136,8 +121,4 @@ func (s Store) Reset(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-func (s Store) Close() error {
-	return s.db.Close()
 }

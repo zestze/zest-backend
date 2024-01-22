@@ -23,6 +23,7 @@ type Client struct {
 	secrets Secrets
 }
 
+// TODO(zeke): use userID to load specific secrets!
 func NewClient(roundTripper http.RoundTripper) (Client, error) {
 	secrets, err := loadSecrets(SECRETS_FILE_NAME)
 	if err != nil {

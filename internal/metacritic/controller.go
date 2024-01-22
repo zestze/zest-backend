@@ -1,7 +1,7 @@
 package metacritic
 
 import (
-	"io"
+	"database/sql"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -13,28 +13,20 @@ import (
 )
 
 type Controller struct {
-	io.Closer
 	Client Client
 	Store  Store
 }
 
-func New() (Controller, error) {
-	store, err := NewStore(DB_FILE_NAME)
-	if err != nil {
-		return Controller{}, err
-	}
+func New(db *sql.DB) Controller {
 	return Controller{
 		Client: NewClient(http.DefaultTransport),
-		Store:  store,
-	}, nil
+		Store:  NewStore(db),
+	}
 }
 
-func (svc Controller) Close() error {
-	return svc.Store.Close()
-}
-
-func (svc Controller) Register(r gin.IRouter) {
+func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g := r.Group("/metacritic")
+	g.Use(auth)
 	g.GET("/posts", svc.getPostsForAPI)
 	g.POST("/refresh", svc.refresh)
 }

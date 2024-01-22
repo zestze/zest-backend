@@ -3,45 +3,37 @@ package reddit
 import (
 	"context"
 	"database/sql"
-	"io"
-
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 
 	"github.com/zestze/zest-backend/internal/zlog"
-	"github.com/zestze/zest-backend/internal/zql"
 	"github.com/zestze/zest-backend/internal/ztrace"
 )
 
-var DB_FILE_NAME = "internal/reddit/store.db"
-
 type Store struct {
-	io.Closer
 	db *sql.DB
 }
 
-func NewStore(dbName string) (Store, error) {
-	db, err := zql.Sqlite3(dbName)
-	if err != nil {
-		return Store{}, err
-	}
+func NewStore(db *sql.DB) Store {
 	return Store{
 		db: db,
-	}, nil
+	}
 }
 
-func (s Store) PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, error) {
+func (s Store) PersistPosts(
+	ctx context.Context, savedPosts []Post, userID int,
+) ([]int64, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Persist")
 	defer span.End()
 
 	stmt, err := s.db.PrepareContext(ctx,
-		`INSERT OR IGNORE INTO saved_posts
+		`INSERT INTO reddit_posts 
 		(permalink, subreddit, num_comments, upvote_ratio, ups, score,
 		total_awards_received, suggested_sort,
-		title, name, created_utc)
+		title, name, created_utc, user_id)
 		VALUES
-		(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		ON CONFLICT DO NOTHING
+		RETURNING id`)
 	if err != nil {
 		logger.Error("error preparing statement", "error", err)
 		return nil, err
@@ -56,22 +48,18 @@ func (s Store) PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, er
 
 	ids := make([]int64, len(savedPosts))
 	for i, post := range savedPosts {
-		result, err := tx.Stmt(stmt).
-			ExecContext(ctx,
+		var id int64
+		err := tx.Stmt(stmt).
+			QueryRowContext(ctx,
 				post.Permalink, post.Subreddit, post.NumComments,
 				post.UpvoteRatio, post.Ups, post.Score,
 				post.TotalAwardsReceived, post.SuggestedSort,
-				post.Title, post.Name, post.CreatedUTC)
+				post.Title, post.Name, post.CreatedUTC,
+				userID).
+			Scan(&id)
 		if err != nil {
 			logger.Error("error persisting post", "permalink", post.Permalink,
 				"error", err)
-			tx.Rollback()
-			return nil, err
-		}
-
-		id, err := result.LastInsertId()
-		if err != nil {
-			logger.Error("error fetching id", "error", err)
 			tx.Rollback()
 			return nil, err
 		}
@@ -82,15 +70,17 @@ func (s Store) PersistPosts(ctx context.Context, savedPosts []Post) ([]int64, er
 	return ids, tx.Commit()
 }
 
-func (s Store) GetAllPosts(ctx context.Context) ([]Post, error) {
+func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
 	defer span.End()
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT permalink, subreddit, score, title, name, created_utc
-		FROM saved_posts
-		ORDER BY ups DESC`)
+		FROM reddit_posts 
+		WHERE user_id=$1
+		ORDER BY ups DESC`,
+		userID)
 	if err != nil {
 		logger.Error("error querying for rows", "error", err)
 		return nil, err
@@ -111,15 +101,17 @@ func (s Store) GetAllPosts(ctx context.Context) ([]Post, error) {
 	return posts, nil
 }
 
-func (s Store) GetSubreddits(ctx context.Context) ([]string, error) {
+func (s Store) GetSubreddits(ctx context.Context, userID int) ([]string, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
 	defer span.End()
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT DISTINCT(subreddit)
-		FROM saved_posts
-		ORDER BY subreddit asc`)
+		FROM reddit_posts
+		WHERE user_id=$1
+		ORDER BY subreddit asc`,
+		userID)
 	if err != nil {
 		logger.Error("error querying for rows", "error", err)
 	}
@@ -136,17 +128,17 @@ func (s Store) GetSubreddits(ctx context.Context) ([]string, error) {
 	return subreddits, nil
 }
 
-func (s Store) GetPostsFor(ctx context.Context, subreddit string) ([]Post, error) {
+func (s Store) GetPostsFor(ctx context.Context, subreddit string, userID int) ([]Post, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
 	defer span.End()
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT permalink, score, title, name, created_utc
-		FROM saved_posts
-		WHERE subreddit=?
+		FROM reddit_posts 
+		WHERE subreddit=$1 AND user_id=$2
 		ORDER BY ups DESC`,
-		subreddit)
+		subreddit, userID)
 	if err != nil {
 		logger.Error("error querying for rows", "error", err)
 		return nil, err
@@ -172,10 +164,12 @@ func (s Store) GetPostsFor(ctx context.Context, subreddit string) ([]Post, error
 func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
 
+	// TODO(zeke): foreign key support!
 	_, err := s.db.Exec(`
 		DROP TABLE IF EXISTS saved_posts;
 		CREATE TABLE IF NOT EXISTS saved_posts (
 			id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id               INTEGER,
 			permalink             TEXT UNIQUE,
 			subreddit             TEXT,
 			num_comments          INTEGER,
@@ -192,8 +186,4 @@ func (s Store) Reset(ctx context.Context) error {
 		logger.Error("error running reset sql", "error", err)
 	}
 	return nil
-}
-
-func (s Store) Close() error {
-	return s.db.Close()
 }

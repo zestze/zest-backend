@@ -1,8 +1,8 @@
 package user
 
 import (
+	"database/sql"
 	"errors"
-	"io"
 	"net/http"
 	"time"
 
@@ -16,20 +16,15 @@ var SALT = 8
 var CookieName = "zest-token"
 
 type Controller struct {
-	io.Closer
 	Store Store
 	sess  Session
 }
 
-func New(sess Session) (Controller, error) {
-	store, err := NewStore(DB_FILE_NAME)
-	if err != nil {
-		return Controller{}, err
-	}
+func New(sess Session, db *sql.DB) Controller {
 	return Controller{
-		Store: store,
+		Store: NewStore(db),
 		sess:  sess,
-	}, nil
+	}
 }
 
 func (svc Controller) Register(r gin.IRouter) {
@@ -183,8 +178,4 @@ func (svc Controller) setCookie(c *gin.Context, value string, expiresAt time.Tim
 type Credentials struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
-}
-
-func (svc Controller) Close() error {
-	return nil
 }

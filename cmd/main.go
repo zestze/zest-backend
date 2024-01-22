@@ -17,6 +17,7 @@ import (
 	"github.com/zestze/zest-backend/internal/reddit"
 	"github.com/zestze/zest-backend/internal/requestid"
 	"github.com/zestze/zest-backend/internal/user"
+	"github.com/zestze/zest-backend/internal/zql"
 	"github.com/zestze/zest-backend/internal/ztrace"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"golang.org/x/sync/errgroup"
@@ -27,6 +28,16 @@ import (
 var cli struct {
 	Server ServerCmd `cmd:"" help:"run server"`
 	Scrape ScrapeCmd `cmd:"" help:"scrape the internet"`
+	Dump   DumpCmd   `cmd:"" help:"dump from sqlite to postgres"`
+}
+
+type DumpCmd struct {
+	Blah bool `help:"dummy flag"`
+}
+
+func (r *DumpCmd) Run() error {
+	Transfer(context.Background())
+	return nil
 }
 
 type ScrapeCmd struct {
@@ -68,40 +79,47 @@ func (r *ServerCmd) Run() error {
 	}
 	defer ztrace.ShutDown(ctx, tp, 2*time.Second)
 
-	router := gin.Default()
-	router.Use(cors.Default())
-	router.Use(requestid.New())
-	router.Use(otelgin.Middleware(r.ServiceName,
-		otelgin.WithSpanNameFormatter(ztrace.SpanName)))
+	router := gin.New()
+	router.Use(
+		gin.LoggerWithConfig(gin.LoggerConfig{
+			SkipPaths: []string{
+				"/metrics",
+				"/health",
+			},
+		}),
+		gin.Recovery(),
+		cors.Default(),
+		requestid.New(),
+		otelgin.Middleware(
+			r.ServiceName,
+			otelgin.WithSpanNameFormatter(ztrace.SpanName),
+		),
+	)
 
-	session := user.NewSession(r.SessionLength)
-	uService, err := user.New(session)
+	db, err := zql.Postgres()
 	if err != nil {
-		slog.Error("error setting up user service", "error", err)
+		slog.Error("error setting up db with migrations", "error", err)
 		return err
 	}
-	defer uService.Close()
+	defer db.Close()
+
+	session := user.NewSession(r.SessionLength)
+	uService := user.New(session, db)
 	uService.Register(router)
 
 	{
 		v1 := router.Group("v1")
-		v1.Use(user.Auth(session))
+		auth := user.Auth(session)
 
-		mService, err := metacritic.New()
-		if err != nil {
-			slog.Error("error setting up metacritic service", "error", err)
-			return err
-		}
-		defer mService.Close()
-		mService.Register(v1)
+		mService := metacritic.New(db)
+		mService.Register(v1, auth)
 
-		rService, err := reddit.New()
+		rService, err := reddit.New(db)
 		if err != nil {
 			slog.Error("error setting up reddit service", "error", err)
 			return err
 		}
-		defer rService.Close()
-		rService.Register(v1)
+		rService.Register(v1, auth)
 	}
 
 	{

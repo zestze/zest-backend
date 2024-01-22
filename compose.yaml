@@ -11,22 +11,44 @@ services:
       - WITH_AUTH=true
     volumes:
       - type: bind
-        source: ./internal/reddit/store.db
-        target: /internal/reddit/store.db
-      - type: bind
-        source: ./internal/metacritic/store.db
-        target: /internal/metacritic/store.db
+        source: ./.remote/
+        target: /.remote/
       - type: bind
         source: ./secrets/
         target: /secrets/
     depends_on:
       - redis
+      - tempo
+      - postgres
   redis:
     image: redis:alpine
     container_name: redis
     restart: unless-stopped
     ports:
       - 6379:6379
+    networks:
+      - monitoring
+      - default
+  postgres:
+    image: postgres
+    container_name: postgres
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    networks:
+      - monitoring
+      - default
+    environment:
+      - POSTGRES_USER=zeke
+      - POSTGRES_PASSWORD=reyna
+      - POSTGRES_DB=zest
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - 8888:8080
     networks:
       - monitoring
       - default
@@ -57,8 +79,6 @@ services:
     networks:
       - monitoring
       - default
-    depends_on:
-      - zest-api
   tempo:
     profiles: [ "monitoring" ]
     image: grafana/tempo:latest
@@ -68,16 +88,18 @@ services:
     volumes:
       - tempo-data:/tmp/tempo
       - ./configs/tempo.yaml:/etc/tempo.yaml
+    networks:
+      - monitoring
+      - default
     ports:
       - 3200:3200 # tempo
       - 9095:9095 # tempo grpc
       - 4317:4317 # otlp grpc
       - 4318:4318 # otlp http
-    depends_on:
-      - zest-api
   nginx:
     profiles: [ "prod" ]
     image: nginx:latest
+    container_name: nginx
     ports:
       - 443:443
       - 80:80
@@ -113,6 +135,7 @@ volumes:
   certbot-var:
   grafana-storage:
   tempo-data:
+  pgdata:
 
 
 networks:

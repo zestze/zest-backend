@@ -10,10 +10,16 @@ import (
 
 	"github.com/zestze/zest-backend/internal/metacritic"
 	"github.com/zestze/zest-backend/internal/reddit"
+	"github.com/zestze/zest-backend/internal/zql"
 )
 
 func scrapeReddit(ctx context.Context, persistToFile, reset bool) {
-	svc, err := reddit.New()
+	db, err := zql.Postgres()
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	svc, err := reddit.New(db)
 	if err != nil {
 		panic(err)
 	}
@@ -42,7 +48,9 @@ func scrapeReddit(ctx context.Context, persistToFile, reset bool) {
 		}
 	}
 
-	ids, err := svc.Store.PersistPosts(ctx, savedPosts)
+	// TODO(zeke): hardcoding userID 1 for now
+	const HARDCODE_ZEKE_ID = 1
+	ids, err := svc.Store.PersistPosts(ctx, savedPosts, HARDCODE_ZEKE_ID)
 	if err != nil {
 		panic(err)
 	}
@@ -52,7 +60,12 @@ func scrapeReddit(ctx context.Context, persistToFile, reset bool) {
 
 func scrapeMetacritic(medium metacritic.Medium, startYear int, numPages int) {
 	ctx := context.Background()
-	svc, err := metacritic.New()
+	db, err := zql.Postgres()
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	svc := metacritic.New(db)
 	if err != nil {
 		panic(err)
 	}
