@@ -40,12 +40,17 @@ type Options struct {
 }
 
 func (opts Options) RangeAsEpoch() (int64, int64) {
+	l, u := opts.RangeAsDate()
+	return l.Unix(), u.Unix()
+}
+
+func (opts Options) RangeAsDate() (time.Time, time.Time) {
 	firstMoment := func(year int) time.Time {
 		return time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 	l := firstMoment(opts.MinYear)
 	u := firstMoment(opts.MaxYear + 1).Add(-time.Second)
-	return l.Unix(), u.Unix()
+	return l, u
 }
 
 func (opts Options) IsValid() bool {

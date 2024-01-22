@@ -1,4 +1,4 @@
-.PHONY: run fmt test prometheus deploy scrape serverless help up build
+.PHONY: run fmt test deploy scrape serverless help up build
 
 build:
 	sudo docker compose --profile monitoring build
@@ -20,19 +20,7 @@ fmt:
 test:
 	go test ./...
 
-prometheus:
-	# create volume separately
-	sudo docker run \
-		-v prometheus-data:/prometheus \
-		--network="host" \
-		-v ${CURDIR}/prometheus.yml:/etc/prometheus/prometheus.yml \
-		prom/prometheus
-
-	#-p 9090:9090 \
-	#--add-host host.docker.internal:host-gateway \
-
-deploy:
-	sudo docker compose build
+deploy: build
 	sudo docker save zest-backend-zest-api > zest-api.tar
 	scp zest-api.tar droplet:~/workspace/zest-api.tar
 	ssh droplet 'make -C workspace deploy'

@@ -25,36 +25,15 @@ import (
 	"github.com/alecthomas/kong"
 )
 
+func main() {
+	ctx := kong.Parse(&cli)
+	ctx.FatalIfErrorf(ctx.Run())
+}
+
 var cli struct {
 	Server ServerCmd `cmd:"" help:"run server"`
 	Scrape ScrapeCmd `cmd:"" help:"scrape the internet"`
 	Dump   DumpCmd   `cmd:"" help:"dump from sqlite to postgres"`
-}
-
-type DumpCmd struct {
-	Blah bool `help:"dummy flag"`
-}
-
-func (r *DumpCmd) Run() error {
-	Transfer(context.Background())
-	return nil
-}
-
-type ScrapeCmd struct {
-	Target string `arg:"" enum:"reddit,metacritic" help:"where to scrape from"`
-	Reset  bool   `help:"if the db should be reset"`
-}
-
-func (r *ScrapeCmd) Run() error {
-	ctx := context.Background()
-	if r.Target == "reddit" {
-		scrapeReddit(ctx, true, false)
-	} else if r.Target == "metacritic" {
-		for _, m := range metacritic.AvailableMediums {
-			scrapeMetacritic(m, 1995, 5)
-		}
-	}
-	return nil
 }
 
 type ServerCmd struct {
@@ -67,7 +46,7 @@ type ServerCmd struct {
 func (r *ServerCmd) Run() error {
 	ctx := context.Background()
 	addr := ":" + strconv.Itoa(r.Port)
-	slog.Info("going to start on " + addr)
+	slog.Info("starting server on " + addr)
 
 	tp, err := ztrace.New(ctx, ztrace.Options{
 		ServiceName:   r.ServiceName,
@@ -98,7 +77,7 @@ func (r *ServerCmd) Run() error {
 
 	db, err := zql.Postgres()
 	if err != nil {
-		slog.Error("error setting up db with migrations", "error", err)
+		slog.Error("error initializing db", "error", err)
 		return err
 	}
 	defer db.Close()
@@ -160,7 +139,31 @@ func (r *ServerCmd) Run() error {
 	return nil
 }
 
-func main() {
-	ctx := kong.Parse(&cli)
-	ctx.FatalIfErrorf(ctx.Run())
+type DumpCmd struct {
+	BaseDir        string `help:"base directory for sqlite files" default:"./sqlite-temp"`
+	RedditFile     string `help:"name of reddit sqlite file" default:"reddit.db"`
+	MetacriticFile string `help:"name of metacritic sqlite file" default:"metacritic.db"`
+	UserFile       string `help:"name of user sqlite file" default:"user.db"`
+}
+
+func (r *DumpCmd) Run() error {
+	Transfer(context.Background(), r.BaseDir, r.RedditFile, r.MetacriticFile, r.UserFile)
+	return nil
+}
+
+type ScrapeCmd struct {
+	Target string `arg:"" enum:"reddit,metacritic" help:"where to scrape from"`
+	Reset  bool   `help:"if the db should be reset"`
+}
+
+func (r *ScrapeCmd) Run() error {
+	ctx := context.Background()
+	if r.Target == "reddit" {
+		scrapeReddit(ctx, true, false)
+	} else if r.Target == "metacritic" {
+		for _, m := range metacritic.AvailableMediums {
+			scrapeMetacritic(m, 1995, 5)
+		}
+	}
+	return nil
 }

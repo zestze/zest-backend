@@ -72,11 +72,11 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Get")
 	defer span.End()
 
-	lowerBound, upperBound := opts.RangeAsEpoch()
+	lowerBound, upperBound := opts.RangeAsDate()
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT title, href, score, description, release_date, requested_at
+		`SELECT title, href, score, description, released, created_at
 		FROM metacritic_posts 
-		WHERE medium = $1 and $2 <= release_date and release_date <= $3
+		WHERE medium = $1 and $2 <= released and released <= $3
 		ORDER BY score DESC`,
 		opts.Medium, lowerBound, upperBound)
 	if err != nil {
@@ -100,20 +100,21 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	return posts, nil
 }
 
+// Reset is primarily for running Sqlite3 tests
 func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
 
 	_, err := s.db.Exec(`
-		DROP TABLE IF EXISTS posts;
-		CREATE TABLE IF NOT EXISTS posts (
+		DROP TABLE IF EXISTS metacritic_posts;
+		CREATE TABLE IF NOT EXISTS metacritic_posts (
 			id           INTEGER PRIMARY KEY AUTOINCREMENT,
 			title        TEXT UNIQUE,
 			href         TEXT,
 			score        INTEGER,
 			description  TEXT,
-			release_date INTEGER,
+			released     INTEGER,
 			medium       VARCHAR(10),
-			requested_at INTEGER
+			created_at   INTEGER
 		);`)
 	if err != nil {
 		logger.Error("error running reset sql", "error", err)

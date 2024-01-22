@@ -2,20 +2,26 @@ package metacritic
 
 import (
 	"context"
-	"database/sql"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/zestze/zest-backend/internal/zql"
 )
 
 func TestDB(t *testing.T) {
-	ctx := context.Background()
-	// TODO(zeke): fix this!!
-	db, err := sql.Open("TODO", "TODO")
-	assert.NoError(t, err)
-	store := NewStore(db)
-	assert.NoError(t, err)
+	assert := assert.New(t)
+	f, err := os.CreateTemp("", "reddit.*.db")
+	assert.NoError(err)
+	defer os.Remove(f.Name())
 
+	db, err := zql.Sqlite3(f.Name())
+	assert.NoError(err)
+	defer db.Close()
+	store := NewStore(db)
+	assert.NoError(err)
+
+	ctx := context.Background()
 	store.Reset(ctx)
 
 	client := NewClient(mockRoundTrip(t))
@@ -27,13 +33,13 @@ func TestDB(t *testing.T) {
 	}
 	posts, err := client.FetchPosts(ctx, options)
 
-	assert.NoError(t, err)
+	assert.NoError(err)
 
 	ids, err := store.PersistPosts(ctx, posts)
-	assert.NoError(t, err)
-	assert.Len(t, ids, len(posts))
+	assert.NoError(err)
+	assert.Len(ids, len(posts))
 
 	persistedPosts, err := store.GetPosts(ctx, options)
-	assert.NoError(t, err)
-	assert.Len(t, persistedPosts, len(posts))
+	assert.NoError(err)
+	assert.Len(persistedPosts, len(posts))
 }

@@ -10,9 +10,7 @@ import (
 	"github.com/zestze/zest-backend/internal/zql"
 )
 
-func Transfer(ctx context.Context) {
-	const directory = "./.remote"
-
+func Transfer(ctx context.Context, directory, redditFile, metacriticFile, userFile string) {
 	// first load the users!
 	targetDB, err := zql.WithMigrations()
 	if err != nil {
@@ -20,7 +18,7 @@ func Transfer(ctx context.Context) {
 	}
 	defer targetDB.Close()
 
-	users := getUsers(ctx, directory+"/user.db")
+	users := getUsers(ctx, directory+"/"+userFile)
 	usersStore := user.NewStore(targetDB)
 	for _, u := range users {
 		_, err = usersStore.PersistUser(ctx, u.username, u.password, u.salt)
@@ -30,7 +28,7 @@ func Transfer(ctx context.Context) {
 	}
 
 	// now, load the reddit posts!
-	redditPosts := getRedditPosts(ctx, directory+"/reddit.db")
+	redditPosts := getRedditPosts(ctx, directory+"/"+redditFile)
 	redditStore := reddit.NewStore(targetDB)
 	_, err = redditStore.PersistPosts(ctx, redditPosts, 1)
 	if err != nil {
@@ -38,7 +36,7 @@ func Transfer(ctx context.Context) {
 	}
 
 	// finally, load the metacritic posts!
-	metacriticPosts := getMetacriticPosts(ctx, directory+"/metacritic.db")
+	metacriticPosts := getMetacriticPosts(ctx, directory+"/"+metacriticFile)
 	metacriticStore := metacritic.NewStore(targetDB)
 	_, err = metacriticStore.PersistPosts(ctx, metacriticPosts)
 	if err != nil {

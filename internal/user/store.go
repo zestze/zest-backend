@@ -76,7 +76,7 @@ func (s Store) Reset(ctx context.Context) error {
 		id         INTEGER PRIMARY KEY AUTOINCREMENT,
 		username   TEXT UNIQUE,
 		password   TEXT UNIQUE,
-		salt       TEXT UNIQUE,
+		salt       INTEGER UNIQUE,
 		created_at INTEGER
 	);`)
 	if err != nil {

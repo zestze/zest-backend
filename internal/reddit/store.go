@@ -3,6 +3,7 @@ package reddit
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/zestze/zest-backend/internal/zlog"
 	"github.com/zestze/zest-backend/internal/ztrace"
@@ -46,8 +47,8 @@ func (s Store) PersistPosts(
 		return nil, err
 	}
 
-	ids := make([]int64, len(savedPosts))
-	for i, post := range savedPosts {
+	ids := make([]int64, 0, len(savedPosts))
+	for _, post := range savedPosts {
 		var id int64
 		err := tx.Stmt(stmt).
 			QueryRowContext(ctx,
@@ -57,14 +58,16 @@ func (s Store) PersistPosts(
 				post.Title, post.Name, post.CreatedUTC,
 				userID).
 			Scan(&id)
-		if err != nil {
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			continue
+		} else if err != nil {
 			logger.Error("error persisting post", "permalink", post.Permalink,
 				"error", err)
 			tx.Rollback()
 			return nil, err
 		}
 
-		ids[i] = id
+		ids = append(ids, id)
 	}
 
 	return ids, tx.Commit()
@@ -164,7 +167,6 @@ func (s Store) GetPostsFor(ctx context.Context, subreddit string, userID int) ([
 func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
 
-	// TODO(zeke): foreign key support!
 	_, err := s.db.Exec(`
 		DROP TABLE IF EXISTS saved_posts;
 		CREATE TABLE IF NOT EXISTS saved_posts (

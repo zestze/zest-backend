@@ -31,5 +31,4 @@ COPY migrations/*sql ./migrations/
 
 ENV GIN_MODE=release
 
-#CMD ["/zest-api", "server"]
-CMD ["/zest-api", "dump"]
+CMD ["/zest-api", "server"]
