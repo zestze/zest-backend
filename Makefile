@@ -1,10 +1,16 @@
-.PHONY: run fmt test deploy scrape serverless help up build
+.PHONY: run fmt test deploy scrape serverless help up build clean down
 
 build:
 	sudo docker compose --profile monitoring build
 
 up: build
 	sudo docker compose --profile monitoring up -d
+
+clean:
+	sudo docker system prune -a
+
+down:
+	sudo docker compose --profile monitoring down
 
 run:
 	go run -tags=jsoniter ./cmd server

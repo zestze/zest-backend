@@ -16,7 +16,7 @@ import (
 	"github.com/zestze/zest-backend/internal/zlog"
 )
 
-var SECRETS_FILE_NAME = "secrets/config.json"
+const defaultSecretsPath = "secrets/config.json"
 
 type Client struct {
 	Client  *http.Client
@@ -25,7 +25,11 @@ type Client struct {
 
 // TODO(zeke): use userID to load specific secrets!
 func NewClient(roundTripper http.RoundTripper) (Client, error) {
-	secrets, err := loadSecrets(SECRETS_FILE_NAME)
+	return NewClientWithSecrets(roundTripper, defaultSecretsPath)
+}
+
+func NewClientWithSecrets(roundTripper http.RoundTripper, secretsPath string) (Client, error) {
+	secrets, err := loadSecrets(secretsPath)
 	if err != nil {
 		return Client{}, err
 	}

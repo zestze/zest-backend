@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/zestze/zest-backend/internal/httptest"
 )
 
 func TestExtract(t *testing.T) {
@@ -21,31 +22,9 @@ func TestExtract(t *testing.T) {
 	assert.Len(t, cards, 24)
 }
 
-type RoundTripFunc func(*http.Request) (*http.Response, error)
-
-func (f RoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return f(r)
-}
-
-func mockRoundTrip(t *testing.T) RoundTripFunc {
-	return RoundTripFunc(
-		func(req *http.Request) (*http.Response, error) {
-			t.Helper()
-			f, err := os.Open("test_index.html")
-			assert.NoError(t, err)
-
-			// let client close!
-			//defer f.Close()
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       f,
-			}, nil
-		})
-}
-
 func TestFetchPosts(t *testing.T) {
 	// mock client
-	client := NewClient(mockRoundTrip(t))
+	client := NewClient(httptest.MockRTWithFile(t, "test_index.html"))
 
 	posts, err := client.FetchPosts(context.Background(), Options{
 		Medium:  TV,

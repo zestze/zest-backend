@@ -1,6 +1,6 @@
 include:
-  - configs/compose/monitoring.yaml
-  - configs/compose/aux.yaml
+  - compose/monitoring.yaml
+  - compose/aux.yaml
 services:
   zest-api:
     container_name: zest-api

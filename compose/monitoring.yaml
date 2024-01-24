@@ -8,7 +8,7 @@ services:
       - 9090:9090
     volumes:
       - prometheus-data:/prometheus
-      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../configs/prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - monitoring
       - default
@@ -34,7 +34,7 @@ services:
     restart: unless-stopped
     volumes:
       - tempo-data:/tmp/tempo
-      - ./configs/tempo.yaml:/etc/tempo.yaml
+      - ../configs/tempo.yaml:/etc/tempo.yaml
     networks:
       - monitoring
       - default

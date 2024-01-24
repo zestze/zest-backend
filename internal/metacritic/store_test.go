@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/zestze/zest-backend/internal/httptest"
 	"github.com/zestze/zest-backend/internal/zql"
 )
 
 func TestDB(t *testing.T) {
 	assert := assert.New(t)
-	f, err := os.CreateTemp("", "reddit.*.db")
+	f, err := os.CreateTemp("", "metacritic.*.db")
 	assert.NoError(err)
 	defer os.Remove(f.Name())
 
@@ -19,12 +20,11 @@ func TestDB(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 	store := NewStore(db)
-	assert.NoError(err)
 
 	ctx := context.Background()
-	store.Reset(ctx)
+	assert.NoError(store.Reset(ctx))
 
-	client := NewClient(mockRoundTrip(t))
+	client := NewClient(httptest.MockRTWithFile(t, "test_index.html"))
 
 	options := Options{
 		Medium:  TV,
@@ -32,7 +32,7 @@ func TestDB(t *testing.T) {
 		MaxYear: 2023,
 	}
 	posts, err := client.FetchPosts(ctx, options)
-
+	assert.Len(posts, 24)
 	assert.NoError(err)
 
 	ids, err := store.PersistPosts(ctx, posts)
