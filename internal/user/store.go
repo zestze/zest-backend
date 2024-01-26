@@ -53,14 +53,13 @@ func (s Store) PersistUser(ctx context.Context, username, password string, salt 
 	defer span.End()
 
 	var id int64
-	err := s.db.QueryRowContext(ctx,
+	if err := s.db.QueryRowContext(ctx,
 		`INSERT INTO users
 		(username, password, salt) 
 		VALUES ($1, $2, $3)
 		ON CONFLICT DO NOTHING
 		RETURNING id`,
-		username, password, salt).Scan(&id)
-	if err != nil {
+		username, password, salt).Scan(&id); err != nil {
 		logger.Error("error persisting user", "error", err)
 		return 0, err
 	}
@@ -70,7 +69,7 @@ func (s Store) PersistUser(ctx context.Context, username, password string, salt 
 func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
 
-	_, err := s.db.Exec(`
+	if _, err := s.db.Exec(`
 	DROP TABLE IF EXISTS users;
 	CREATE TABLE IF NOT EXISTS users (
 		id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,8 +77,7 @@ func (s Store) Reset(ctx context.Context) error {
 		password   TEXT UNIQUE,
 		salt       INTEGER UNIQUE,
 		created_at INTEGER
-	);`)
-	if err != nil {
+	);`); err != nil {
 		logger.Error("error running reset sql", "error", err)
 		return err
 	}

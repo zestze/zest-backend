@@ -77,7 +77,7 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 		`SELECT title, href, score, description, released, created_at
 		FROM metacritic_posts 
 		WHERE medium = $1 and $2 <= released and released <= $3
-		ORDER BY score DESC`,
+		ORDER BY released DESC`,
 		opts.Medium, lowerBound, upperBound)
 	if err != nil {
 		logger.Error("error querying for rows", "error", err)
@@ -104,7 +104,7 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
 
-	_, err := s.db.Exec(`
+	if _, err := s.db.Exec(`
 		DROP TABLE IF EXISTS metacritic_posts;
 		CREATE TABLE IF NOT EXISTS metacritic_posts (
 			id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,8 +115,7 @@ func (s Store) Reset(ctx context.Context) error {
 			released     INTEGER,
 			medium       VARCHAR(10),
 			created_at   INTEGER
-		);`)
-	if err != nil {
+		);`); err != nil {
 		logger.Error("error running reset sql", "error", err)
 		return err
 	}

@@ -82,7 +82,8 @@ func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
 		`SELECT permalink, subreddit, score, title, name, created_utc
 		FROM reddit_posts 
 		WHERE user_id=$1
-		ORDER BY created_utc DESC`,
+		ORDER BY created_utc DESC
+		LIMIT 100`,
 		userID)
 	if err != nil {
 		logger.Error("error querying for rows", "error", err)
@@ -167,7 +168,7 @@ func (s Store) GetPostsFor(ctx context.Context, subreddit string, userID int) ([
 func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
 
-	_, err := s.db.Exec(`
+	if _, err := s.db.Exec(`
 		DROP TABLE IF EXISTS redd0t_posts;
 		CREATE TABLE IF NOT EXISTS reddit_posts (
 			id                    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,8 +185,7 @@ func (s Store) Reset(ctx context.Context) error {
 			suggested_sort        TEXT,
 			created_utc           REAL,
 			created_at            INTEGER
-		);`)
-	if err != nil {
+		);`); err != nil {
 		logger.Error("error running reset sql", "error", err)
 	}
 	return nil
