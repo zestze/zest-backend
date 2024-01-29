@@ -9,9 +9,6 @@ services:
     volumes:
       - prometheus-data:/prometheus
       - ../configs/prometheus.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - monitoring
-      - default
     depends_on:
       - zest-api
   grafana:
@@ -23,9 +20,6 @@ services:
       - 3000:3000
     volumes:
       - grafana-storage:/var/lib/grafana
-    networks:
-      - monitoring
-      - default
   tempo:
     profiles: [ "monitoring" ]
     image: grafana/tempo:latest
@@ -35,9 +29,6 @@ services:
     volumes:
       - tempo-data:/tmp/tempo
       - ../configs/tempo.yaml:/etc/tempo.yaml
-    networks:
-      - monitoring
-      - default
     ports:
       - 3200:3200 # tempo
       - 9095:9095 # tempo grpc
@@ -48,7 +39,3 @@ volumes:
   prometheus-data:
   grafana-storage:
   tempo-data:
-
-networks:
-  monitoring:
-    driver: bridge

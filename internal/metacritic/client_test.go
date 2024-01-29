@@ -37,7 +37,10 @@ func TestFetchPosts(t *testing.T) {
 }
 
 func TestFetchPosts_Actual(t *testing.T) {
-	t.Skip("skipping bc integration test")
+	if testing.Short() {
+		t.Skip("skipping integration test due to running in short mode")
+	}
+
 	client := NewClient(http.DefaultTransport)
 	posts, err := client.FetchPosts(context.Background(), Options{
 		Medium:  TV,

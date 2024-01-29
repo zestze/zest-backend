@@ -43,17 +43,26 @@ type ServerCmd struct {
 	SessionLength time.Duration `env:"SESSION_LENGTH" default:"15m" help:"maximum length of user session"`
 }
 
+func (r *ServerCmd) Group() slog.Attr {
+	return slog.Group("server", slog.Int("port", r.Port),
+		slog.String("otlp_endpoint", r.OtlpEndpoint),
+		slog.String("service_name", r.ServiceName),
+		slog.String("session_length", r.SessionLength.String()))
+}
+
 func (r *ServerCmd) Run() error {
 	ctx := context.Background()
 	addr := ":" + strconv.Itoa(r.Port)
-	slog.Info("starting server on " + addr)
+	logger := slog.Default().With(r.Group())
+	logger.Info("starting server on " + addr)
 
+	logger.Info("setting up tracer")
 	tp, err := ztrace.New(ctx, ztrace.Options{
 		ServiceName:   r.ServiceName,
 		OTLPEndppoint: r.OtlpEndpoint,
 	})
 	if err != nil {
-		slog.Error("error setting up tracer", "error", err)
+		logger.Error("error setting up tracer", "error", err)
 		return err
 	}
 	defer ztrace.ShutDown(ctx, tp, 2*time.Second)
@@ -75,13 +84,15 @@ func (r *ServerCmd) Run() error {
 		),
 	)
 
+	logger.Info("setting up db connection")
 	db, err := zql.Postgres()
 	if err != nil {
-		slog.Error("error initializing db", "error", err)
+		logger.Error("error initializing db", "error", err)
 		return err
 	}
 	defer db.Close()
 
+	logger.Info("setting up services")
 	session := user.NewSession(r.SessionLength)
 	uService := user.New(session, db)
 	uService.Register(router)
@@ -95,7 +106,7 @@ func (r *ServerCmd) Run() error {
 
 		rService, err := reddit.New(db)
 		if err != nil {
-			slog.Error("error setting up reddit service", "error", err)
+			logger.Error("error setting up reddit service", "error", err)
 			return err
 		}
 		rService.Register(v1, auth)
@@ -118,6 +129,7 @@ func (r *ServerCmd) Run() error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
+	logger.Info("running server")
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -132,9 +144,9 @@ func (r *ServerCmd) Run() error {
 	})
 
 	if err = g.Wait(); err != nil {
-		slog.Error("error from server", "error", err)
+		logger.Error("error from server", "error", err)
 	}
-	slog.Info("gracefully shutting down")
+	logger.Info("gracefully shutting down")
 
 	return nil
 }

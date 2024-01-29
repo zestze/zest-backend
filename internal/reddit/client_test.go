@@ -19,7 +19,10 @@ func TestFetchPosts(t *testing.T) {
 }
 
 func TestFetchPosts_Actual(t *testing.T) {
-	t.Skip("skipping bc integration test")
+	if testing.Short() {
+		t.Skip("skipping integration test due to running in short mode")
+	}
+
 	client, err := NewClientWithSecrets(httptest.MockRTWithFile(t, "test_response.json"),
 		"../../secrets/config.json")
 	assert.NoError(t, err)

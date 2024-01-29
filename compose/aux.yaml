@@ -12,9 +12,6 @@ services:
       - certbot-etc:/etc/letsencrypt
       - certbot-var:/var/lib/letsencrypt
       - ../certbot/www/:/var/www/certbot:ro
-    networks:
-      - monitoring
-      - default
     depends_on:
       - zest-api
   adminer:
@@ -34,9 +31,6 @@ services:
       - certbot-etc:/etc/letsencrypt
       - certbot-var:/var/lib/letsencrypt
       - ../certbot/www/:/var/www/certbot:rw
-    networks:
-      - monitoring
-      - default
     depends_on:
       - nginx
     command: certonly --webroot --webroot-path=/var/www/certbot --email reynaezekiel@gmail.com --agree-tos --no-eff-email -d api.zekereyna.dev

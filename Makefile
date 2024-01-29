@@ -1,5 +1,9 @@
 .PHONY: run fmt test deploy scrape serverless help up build clean down
 
+##################
+## docker commands
+##################
+
 build:
 	sudo docker compose --profile monitoring build
 
@@ -11,6 +15,10 @@ clean:
 
 down:
 	sudo docker compose --profile monitoring down
+
+##################
+## go tool commands
+##################
 
 run:
 	go run -tags=jsoniter ./cmd server
@@ -24,15 +32,20 @@ fmt:
 	go vet ./...
 
 test:
-	go test ./...
+	go test -short ./...
+
+scrape:
+	go run ./cmd scrape reddit
+
+##################
+## deploy commands
+##################
 
 deploy: build
 	sudo docker save zest-backend-zest-api > zest-api.tar
 	scp zest-api.tar droplet:~/workspace/zest-api.tar
 	ssh droplet 'make -C workspace deploy'
 
-scrape:
-	go run ./cmd scrape reddit
 
 serverless:
 	doctl serverless deploy serverless
