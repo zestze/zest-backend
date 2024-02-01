@@ -10,7 +10,7 @@ import (
 
 func TestFetchPosts(t *testing.T) {
 	client, err := NewClientWithSecrets(httptest.MockRTWithFile(t, "test_response.json"),
-		"../../secrets/config.json")
+		"../../secrets/reddit_config.json")
 	assert.NoError(t, err)
 
 	posts, err := client.Fetch(context.Background(), false)
@@ -24,7 +24,7 @@ func TestFetchPosts_Actual(t *testing.T) {
 	}
 
 	client, err := NewClientWithSecrets(httptest.MockRTWithFile(t, "test_response.json"),
-		"../../secrets/config.json")
+		"../../secrets/reddit_config.json")
 	assert.NoError(t, err)
 
 	posts, err := client.Fetch(context.Background(), false)

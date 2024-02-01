@@ -16,7 +16,7 @@ import (
 	"github.com/zestze/zest-backend/internal/zlog"
 )
 
-const defaultSecretsPath = "secrets/config.json"
+const defaultSecretsPath = "secrets/reddit_config.json"
 
 type Client struct {
 	Client  *http.Client
@@ -108,10 +108,11 @@ func (c Client) authorize(ctx context.Context) (AuthResponse, error) {
 	resp, err := c.Client.Do(req)
 	if err != nil {
 		return AuthResponse{}, fmt.Errorf("Authorize(): error making request: %w", err)
-	} else if resp.StatusCode != http.StatusOK {
-		return AuthResponse{}, fmt.Errorf("Authorize(): status code is not 200: %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return AuthResponse{}, fmt.Errorf("Authorize(): status code is not 200: %v", resp.StatusCode)
+	}
 
 	var authResponse AuthResponse
 	if err := jsoniter.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
@@ -142,10 +143,11 @@ func (c Client) getSavedPosts(ctx context.Context, authData AuthResponse, lastRe
 	resp, err := c.Client.Do(req)
 	if err != nil {
 		return ApiResponse{}, fmt.Errorf("GetSavedPosts(): error making request: %w", err)
-	} else if resp.StatusCode != http.StatusOK {
-		return ApiResponse{}, fmt.Errorf("GetSavedPosts(): status code is not 200: %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ApiResponse{}, fmt.Errorf("GetSavedPosts(): status code is not 200: %v", resp.StatusCode)
+	}
 
 	var apiResponse ApiResponse
 	if err := jsoniter.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {

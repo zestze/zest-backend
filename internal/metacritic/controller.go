@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/zestze/zest-backend/internal/zgin"
 	"github.com/zestze/zest-backend/internal/zlog"
 
 	"github.com/gin-gonic/gin"
@@ -55,9 +56,7 @@ func (svc Controller) getPostsForAPI(c *gin.Context) {
 	posts, err := svc.Store.GetPosts(c, opts)
 	if err != nil {
 		slog.Error("error fetching posts", "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{
-			"error": "internal error",
-		})
+		zgin.InternalError(c)
 		return
 	}
 
@@ -89,9 +88,7 @@ func (svc Controller) refresh(c *gin.Context) {
 			})
 			if err != nil {
 				logger.Error("error fetching posts", "error", err)
-				c.IndentedJSON(http.StatusInternalServerError, gin.H{
-					"error": "internal error",
-				})
+				zgin.InternalError(c)
 				return
 			}
 
@@ -99,9 +96,7 @@ func (svc Controller) refresh(c *gin.Context) {
 			ids, err := svc.Store.PersistPosts(c, posts)
 			if err != nil {
 				logger.Error("error persisting posts", "error", err)
-				c.IndentedJSON(http.StatusInternalServerError, gin.H{
-					"error": "internal error",
-				})
+				zgin.InternalError(c)
 				return
 			}
 

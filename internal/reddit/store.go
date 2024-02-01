@@ -187,6 +187,7 @@ func (s Store) Reset(ctx context.Context) error {
 			created_at            INTEGER
 		);`); err != nil {
 		logger.Error("error running reset sql", "error", err)
+		return err
 	}
 	return nil
 }

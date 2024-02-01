@@ -7,12 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/zestze/zest-backend/internal/user"
-	"github.com/zestze/zest-backend/internal/zlog"
-)
-
-var (
-	UserIdKey string = "zest.user_id"
+	"github.com/zestze/zest-backend/internal/zgin"
 )
 
 type Controller struct {
@@ -34,17 +29,9 @@ func New(db *sql.DB) (Controller, error) {
 func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g := r.Group("/reddit")
 	g.Use(auth)
-	g.GET("/posts", withParams(svc.getPosts))
-	g.GET("/subreddits", withParams(svc.getSubreddits))
-	g.POST("/refresh", withParams(svc.refresh))
-}
-
-func withParams(f func(*gin.Context, int, *slog.Logger)) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		userID := c.GetInt(user.UserIdKey)
-		logger := zlog.Logger(c)
-		f(c, userID, logger)
-	}
+	g.GET("/posts", zgin.WithUser(svc.getPosts))
+	g.GET("/subreddits", zgin.WithUser(svc.getSubreddits))
+	g.POST("/refresh", zgin.WithUser(svc.refresh))
 }
 
 func (svc Controller) getPosts(c *gin.Context, userID int, logger *slog.Logger) {
@@ -60,9 +47,7 @@ func (svc Controller) getPosts(c *gin.Context, userID int, logger *slog.Logger) 
 
 	if err != nil {
 		logger.Error("error loading posts", "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{
-			"error": "internal error",
-		})
+		zgin.InternalError(c)
 		return
 	}
 
@@ -75,9 +60,7 @@ func (svc Controller) getSubreddits(c *gin.Context, userID int, logger *slog.Log
 	subreddits, err := svc.Store.GetSubreddits(c, userID)
 	if err != nil {
 		logger.Error("error loading subreddits", "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{
-			"error": "internal error",
-		})
+		zgin.InternalError(c)
 		return
 	}
 
@@ -90,9 +73,7 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 	savedPosts, err := svc.Client.Fetch(c, false)
 	if err != nil {
 		logger.Error("error fetching posts", "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{
-			"error": "internal error",
-		})
+		zgin.InternalError(c)
 		return
 	}
 
@@ -101,9 +82,7 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 	ids, err := svc.Store.PersistPosts(c, savedPosts, userID)
 	if err != nil {
 		logger.Error("error persisting posts", "error", err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{
-			"error": "internal error",
-		})
+		zgin.InternalError(c)
 		return
 	}
 
