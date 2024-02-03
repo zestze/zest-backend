@@ -1,6 +1,7 @@
 package reddit
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"net/http"
@@ -11,19 +12,23 @@ import (
 )
 
 type Controller struct {
-	Client Client
+	Client api
 	Store  Store
 }
 
 func New(db *sql.DB) (Controller, error) {
-	client, err := NewClient(http.DefaultTransport)
+	secrets, err := loadSecrets(defaultSecretsPath)
 	if err != nil {
 		return Controller{}, err
 	}
 	return Controller{
-		Client: client,
+		Client: NewClient(WithSecrets(secrets)),
 		Store:  NewStore(db),
 	}, nil
+}
+
+type api interface {
+	Fetch(ctx context.Context, grabAll bool) ([]Post, error)
 }
 
 func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {

@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
-	"github.com/zestze/zest-backend/internal/httptest"
 	"github.com/zestze/zest-backend/internal/zql"
 )
 
@@ -24,13 +24,7 @@ func TestDB(t *testing.T) {
 	ctx := context.Background()
 	assert.NoError(store.Reset(ctx))
 
-	client, err := NewClientWithSecrets(httptest.MockRTWithFile(t, "test_response.json"),
-		"../../secrets/config.json")
-	assert.NoError(err)
-
-	posts, err := client.Fetch(ctx, false)
-	assert.NoError(err)
-	assert.Len(posts, 6)
+	posts := mockFetchPosts(t, "test_response.json")
 
 	userID := 1
 	ids, err := store.PersistPosts(ctx, posts, userID)
@@ -49,4 +43,16 @@ func TestDB(t *testing.T) {
 	subreddits, err := store.GetSubreddits(ctx, userID)
 	assert.NoError(err)
 	assert.Len(subreddits, 5)
+}
+
+func mockFetchPosts(t *testing.T, fname string) []Post {
+	t.Helper()
+	f, err := os.Open(fname)
+	assert.NoError(t, err)
+	defer f.Close()
+
+	var apiResponse ApiResponse
+	assert.NoError(t, jsoniter.NewDecoder(f).Decode(&apiResponse))
+
+	return apiResponse.Posts()
 }

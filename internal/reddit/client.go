@@ -11,7 +11,6 @@ import (
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
-	"github.com/samber/lo"
 
 	"github.com/zestze/zest-backend/internal/zlog"
 )
@@ -23,9 +22,37 @@ type Client struct {
 	secrets Secrets
 }
 
-// TODO(zeke): use userID to load specific secrets!
-func NewClient(roundTripper http.RoundTripper) (Client, error) {
-	return NewClientWithSecrets(roundTripper, defaultSecretsPath)
+func NewClient(options ...func(*Client)) *Client {
+	client := &Client{
+		Client: &http.Client{
+			Timeout:   60 * time.Second,
+			Transport: http.DefaultTransport,
+		},
+	}
+
+	for _, o := range options {
+		o(client)
+	}
+
+	return client
+}
+
+func WithRoundTripper(rt http.RoundTripper) func(*Client) {
+	return func(c *Client) {
+		c.Client.Transport = rt
+	}
+}
+
+func WithSecrets(secrets Secrets) func(*Client) {
+	return func(c *Client) {
+		c.secrets = secrets
+	}
+}
+
+func WithTimeout(t time.Duration) func(*Client) {
+	return func(c *Client) {
+		c.Client.Timeout = t
+	}
 }
 
 func NewClientWithSecrets(roundTripper http.RoundTripper, secretsPath string) (Client, error) {
@@ -57,13 +84,7 @@ func (c Client) Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
 		return nil, fmt.Errorf("Fetch(): error during Get: %w", err)
 	}
 
-	toPosts := func() []Post {
-		return lo.Map(apiResponse.Data.Children, func(child struct{ Data Post }, _ int) Post {
-			return child.Data
-		})
-	}
-
-	savedPosts := toPosts()
+	savedPosts := apiResponse.Posts()
 
 	seen := map[string]bool{}
 	lastSeenPost := apiResponse.Data.After
@@ -77,7 +98,7 @@ func (c Client) Fetch(ctx context.Context, grabAll bool) ([]Post, error) {
 			return nil, fmt.Errorf("Fetch(): error during Get: %w", err)
 		}
 
-		savedPosts = append(savedPosts, toPosts()...)
+		savedPosts = append(savedPosts, apiResponse.Posts()...)
 
 		lastSeenPost = apiResponse.Data.After
 	}

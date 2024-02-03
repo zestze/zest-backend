@@ -1,5 +1,7 @@
 package reddit
 
+import "github.com/samber/lo"
+
 type Secrets struct {
 	ClientId     string
 	ClientSecret string
@@ -38,4 +40,10 @@ type ApiResponse struct {
 		}
 		After string
 	}
+}
+
+func (ar ApiResponse) Posts() []Post {
+	return lo.Map(ar.Data.Children, func(child struct{ Data Post }, _ int) Post {
+		return child.Data
+	})
 }
