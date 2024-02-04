@@ -30,10 +30,17 @@ func (s Store) PersistPosts(
 		`INSERT INTO reddit_posts 
 		(permalink, subreddit, num_comments, upvote_ratio, ups, score,
 		total_awards_received, suggested_sort,
-		title, name, created_utc, user_id)
+		title, name, created_utc, user_id,
+		link_title, body)
 		VALUES
-		($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT DO NOTHING
+		($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		ON CONFLICT (name)
+			DO UPDATE SET 
+			ups=excluded.ups,
+			score=excluded.score,
+			upvote_ratio=excluded.upvote_ratio,
+			link_title=excluded.link_title,
+			body=excluded.body
 		RETURNING id`)
 	if err != nil {
 		logger.Error("error preparing statement", "error", err)
@@ -56,7 +63,8 @@ func (s Store) PersistPosts(
 				post.UpvoteRatio, post.Ups, post.Score,
 				post.TotalAwardsReceived, post.SuggestedSort,
 				post.Title, post.Name, post.CreatedUTC,
-				userID).
+				userID,
+				post.LinkTitle, post.Body).
 			Scan(&id)
 		if err != nil && errors.Is(err, sql.ErrNoRows) {
 			continue
@@ -79,7 +87,8 @@ func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
 	defer span.End()
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT permalink, subreddit, score, title, name, created_utc
+		`SELECT permalink, subreddit, score, title, name, 
+			created_utc, link_title, body
 		FROM reddit_posts 
 		WHERE user_id=$1
 		ORDER BY created_utc DESC
@@ -95,7 +104,8 @@ func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
 	for rows.Next() {
 		var post Post
 		if err := rows.Scan(&post.Permalink, &post.Subreddit, &post.Score,
-			&post.Title, &post.Name, &post.CreatedUTC); err != nil {
+			&post.Title, &post.Name, &post.CreatedUTC,
+			&post.LinkTitle, &post.Body); err != nil {
 			return nil, err
 		}
 
@@ -138,7 +148,8 @@ func (s Store) GetPostsFor(ctx context.Context, subreddit string, userID int) ([
 	defer span.End()
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT permalink, score, title, name, created_utc
+		`SELECT permalink, score, title, name, created_utc,
+			link_title, body
 		FROM reddit_posts 
 		WHERE subreddit=$1 AND user_id=$2
 		ORDER BY created_utc DESC`,
@@ -155,7 +166,8 @@ func (s Store) GetPostsFor(ctx context.Context, subreddit string, userID int) ([
 			Subreddit: subreddit,
 		}
 		if err := rows.Scan(&post.Permalink, &post.Score,
-			&post.Title, &post.Name, &post.CreatedUTC); err != nil {
+			&post.Title, &post.Name, &post.CreatedUTC,
+			&post.LinkTitle, &post.Body); err != nil {
 			return nil, err
 		}
 
@@ -169,12 +181,12 @@ func (s Store) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
 
 	if _, err := s.db.Exec(`
-		DROP TABLE IF EXISTS redd0t_posts;
+		DROP TABLE IF EXISTS reddit_posts;
 		CREATE TABLE IF NOT EXISTS reddit_posts (
 			id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-			name                  TEXT,
+			name                  TEXT UNIQUE,
 			user_id               INTEGER,
-			permalink             TEXT UNIQUE,
+			permalink             TEXT,
 			subreddit             TEXT,
 			title                 TEXT,
 			num_comments          INTEGER,
@@ -183,6 +195,8 @@ func (s Store) Reset(ctx context.Context) error {
 			score                 INTEGER,
 			total_awards_received INTEGER,
 			suggested_sort        TEXT,
+			link_title            TEXT,
+			body                  TEXT,
 			created_utc           REAL,
 			created_at            INTEGER
 		);`); err != nil {

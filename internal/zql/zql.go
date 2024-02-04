@@ -39,12 +39,7 @@ func WithMigrations() (*sql.DB, error) {
 		return nil, err
 	}
 
-	slog.Info("going to run migrations down")
-	if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return nil, err
-	}
-
-	slog.Info("about to run migrations")
+	slog.Info("running migrations")
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return nil, err
 	}

@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS users(
 CREATE TABLE IF NOT EXISTS reddit_posts(
     id serial PRIMARY KEY,
     name  text UNIQUE NOT NULL,
-    user_id int REFERENCES users(id) ON DELETE CASCADE,
+    user_id int REFERENCES users(id) 
+        ON DELETE CASCADE
+        NOT NULL,
     permalink text UNIQUE NOT NULL,
     subreddit text NOT NULL,
     title text,

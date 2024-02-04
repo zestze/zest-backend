@@ -20,9 +20,6 @@ services:
     restart: unless-stopped
     ports:
       - 8888:8080
-    networks:
-      - monitoring
-      - default
   certbot:
     profiles: [ "certs" ]
     image: certbot/certbot

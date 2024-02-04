@@ -23,9 +23,17 @@ var tracer trace.Tracer
 type Options struct {
 	ServiceName   string
 	OTLPEndppoint string
+	Enabled       bool
 }
 
-func New(ctx context.Context, opts Options) (*sdktrace.TracerProvider, error) {
+func New(ctx context.Context, opts Options) (Shutdowner, error) {
+	if !opts.Enabled {
+		tp := noop.NewTracerProvider()
+		tracer = tp.Tracer(opts.ServiceName)
+		return NoopTracerProvider{
+			TracerProvider: tp,
+		}, nil
+	}
 	//exporter, err := stdout.New(stdout.WithPrettyPrint())
 	exporter, err := newOTLPExporter(ctx, opts.OTLPEndppoint)
 	if err != nil {
@@ -68,12 +76,25 @@ type Shutdowner interface {
 
 // often the parent context will already have been canceled
 // so set our own internal timeout for shutting down the tracer provider
-func ShutDown(ctx context.Context, s Shutdowner, timeout time.Duration) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func Shutdown(ctx context.Context, s Shutdowner, timeout time.Duration) {
+	if ctx.Err() != nil {
+		// if parent context is already cancelled, fallback to background
+		// this is super likely, since we're shutting down.
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	if err := s.Shutdown(ctx); err != nil {
 		slog.Error("error shutting down tracing", "error", err)
 	}
+}
+
+type NoopTracerProvider struct {
+	noop.TracerProvider
+}
+
+func (tp NoopTracerProvider) Shutdown(ctx context.Context) error {
+	return nil
 }
 
 func newTraceProvider(exporter sdktrace.SpanExporter, opts Options) (*sdktrace.TracerProvider, error) {

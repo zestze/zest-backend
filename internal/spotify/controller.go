@@ -31,6 +31,7 @@ func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g := r.Group("/spotify")
 	g.Use(auth)
 	g.POST("/refresh", zgin.WithUser(svc.refresh))
+	g.POST("/token", zgin.WithUser(svc.addToken))
 }
 
 func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
@@ -70,5 +71,26 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 
 	c.IndentedJSON(http.StatusOK, gin.H{
 		"num_refreshed": 0,
+	})
+}
+
+func (svc Controller) addToken(c *gin.Context, userID int, logger *slog.Logger) {
+	var token AccessToken
+	if err := c.ShouldBindJSON(&token); err != nil {
+		logger.Error("error binding body for token", "error", err)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{
+			"error": "please provide token correctly",
+		})
+		return
+	}
+
+	if err := svc.Store.PersistToken(c, token, userID); err != nil {
+		logger.Error("error persisting token", "error", err)
+		zgin.InternalError(c)
+		return
+	}
+
+	c.IndentedJSON(http.StatusCreated, gin.H{
+		"status": "ok",
 	})
 }

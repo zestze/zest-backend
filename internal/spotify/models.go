@@ -14,7 +14,8 @@ type AccessToken struct {
 	Scope     string `json:"scope"`
 	ExpiresIn int    `json:"expires_in"`
 	Refresh   string `json:"refresh_token"`
-	ExpiresAt time.Time
+	// not set by spotify API
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 func merge[T comparable](v, fallback T) T {

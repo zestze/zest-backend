@@ -5,16 +5,16 @@
 ##################
 
 build:
-	sudo docker compose --profile monitoring build
+	sudo docker compose build
 
 up: build
-	sudo docker compose --profile monitoring up -d
+	sudo docker compose up -d
 
 clean:
 	sudo docker system prune -a
 
 down:
-	sudo docker compose --profile monitoring down
+	sudo docker compose down
 
 ##################
 ## go tool commands

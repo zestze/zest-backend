@@ -41,13 +41,15 @@ type ServerCmd struct {
 	OtlpEndpoint  string        `short:"e" env:"OTLP_ENDPOINT" default:"tempo:4317" help:"otlp endpoint for trace exporters"`
 	ServiceName   string        `short:"n" env:"SERVICE_NAME" default:"zest"`
 	SessionLength time.Duration `env:"SESSION_LENGTH" default:"15m" help:"maximum length of user session"`
+	EnableTracing bool          `short:"t" env:"ENABLE_TRACING" help:"set to start tracing"`
 }
 
 func (r *ServerCmd) Group() slog.Attr {
 	return slog.Group("server", slog.Int("port", r.Port),
 		slog.String("otlp_endpoint", r.OtlpEndpoint),
 		slog.String("service_name", r.ServiceName),
-		slog.String("session_length", r.SessionLength.String()))
+		slog.String("session_length", r.SessionLength.String()),
+		slog.Bool("enable_tracing", r.EnableTracing))
 }
 
 func (r *ServerCmd) Run() error {
@@ -60,12 +62,13 @@ func (r *ServerCmd) Run() error {
 	tp, err := ztrace.New(ctx, ztrace.Options{
 		ServiceName:   r.ServiceName,
 		OTLPEndppoint: r.OtlpEndpoint,
+		Enabled:       r.EnableTracing,
 	})
 	if err != nil {
 		logger.Error("error setting up tracer", "error", err)
 		return err
 	}
-	defer ztrace.ShutDown(ctx, tp, 2*time.Second)
+	defer ztrace.Shutdown(ctx, tp, 2*time.Second)
 
 	router := gin.New()
 	router.Use(
@@ -85,7 +88,7 @@ func (r *ServerCmd) Run() error {
 	)
 
 	logger.Info("setting up db connection")
-	db, err := zql.Postgres()
+	db, err := zql.WithMigrations()
 	if err != nil {
 		logger.Error("error initializing db", "error", err)
 		return err

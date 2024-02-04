@@ -31,6 +31,10 @@ type Post struct {
 	Title      string  `json:"title,omitempty"`
 	Name       string  `json:"name,omitempty"`        // appears to be "thing type" + "id"
 	CreatedUTC float64 `json:"created_utc,omitempty"` // appears to be an epoch float
+
+	// for comments
+	LinkTitle string `json:"link_title,omitempty"`
+	Body      string `json:"body,omitempty"`
 }
 
 type ApiResponse struct {
