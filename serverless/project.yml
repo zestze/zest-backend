@@ -14,9 +14,11 @@ packages:
           web: true
           webSecure: false
           parameters: {}
-          environment: {}
           annotations: {}
           limits: {}
+          environment:
+            ZEST_USERNAME: "${ZEST_USERNAME}"
+            ZEST_PASSWORD: "${ZEST_PASSWORD}"
           # the following triggers don't work per https://github.com/digitalocean/doctl/issues/1474
           # but keeping for reference!
           triggers:

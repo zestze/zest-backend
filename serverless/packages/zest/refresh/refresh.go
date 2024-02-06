@@ -1,10 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"fmt"
+	"log"
 	"net/http"
+	"net/http/cookiejar"
+	"os"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 /*
@@ -18,26 +23,71 @@ type Event struct {
 }
 
 func Main(ctx context.Context, event Event) {
-	uri := "https://api.zekereyna.dev/v1/" + event.Resource + "/refresh"
-	fmt.Println("going to refresh server at: ", uri)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, nil)
-	// TODO(zeke): use structured logging like slog!
+	logger := log.Default()
+
+	// login first!
+	jar, err := cookiejar.New(nil)
 	if err != nil {
-		fmt.Println("error making request: ", err)
+		logger.Fatal("error making cookie jar: ", err)
+		return
 	}
 
-	client := &http.Client{
+	var bs bytes.Buffer
+	if err := jsoniter.NewEncoder(&bs).Encode(struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}{
+		Username: os.Getenv("ZEST_USERNAME"),
+		Password: os.Getenv("ZEST_PASSWORD"),
+	}); err != nil {
+		logger.Fatal("error encoding credentials: ", err)
+		return
+	}
+
+	logger.Print("logging into server")
+	uri := "https://api.zekereyna.dev/login"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, &bs)
+	if err != nil {
+		logger.Fatal("error making login request: ", err)
+		return
+	}
+
+	client := http.Client{
 		Timeout: 60 * time.Second,
+		Jar:     jar,
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("error doing request: ", err)
-	} else if resp.StatusCode != http.StatusOK {
-		fmt.Println("error, status code is: ", resp.StatusCode)
+		logger.Fatal("error doing login request: ", err)
+		return
+	}
+	resp.Body.Close() // nothing to handle but still should close
+	if resp.StatusCode != http.StatusOK {
+		logger.Fatal("error code from login request, status code:", resp.StatusCode)
+		return
 	}
 
-	fmt.Println("done refreshing server")
+	uri = "https://api.zekereyna.dev/v1/" + event.Resource + "/refresh"
+	logger.Print("refreshing server, uri: ", uri)
+	req, err = http.NewRequestWithContext(ctx, http.MethodPost, uri, nil)
+	if err != nil {
+		logger.Fatal("error making request: ", err)
+		return
+	}
+
+	resp, err = client.Do(req)
+	if err != nil {
+		logger.Fatal("error doing request, err: ", err)
+		return
+	}
+	resp.Body.Close() // nothing to handle but still should close
+	if resp.StatusCode != http.StatusOK {
+		logger.Fatal("error doing request, status code: ", resp.StatusCode)
+		return
+	}
+
+	logger.Print("successfully refreshed server")
 }
 
 /*
