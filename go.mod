@@ -43,6 +43,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.46.1
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.21.0
 	golang.org/x/sync v0.5.0
+	gopkg.in/guregu/null.v4 v4.0.0
 )
 
 require (

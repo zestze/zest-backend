@@ -1,6 +1,10 @@
 package reddit
 
-import "github.com/samber/lo"
+import (
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/samber/lo"
+)
 
 type Secrets struct {
 	ClientId     string
@@ -33,8 +37,8 @@ type Post struct {
 	CreatedUTC float64 `json:"created_utc,omitempty"` // appears to be an epoch float
 
 	// for comments
-	LinkTitle string `json:"link_title,omitempty"`
-	Body      string `json:"body,omitempty"`
+	LinkTitle null.String `json:"link_title,omitempty"`
+	Body      null.String `json:"body,omitempty"`
 }
 
 type ApiResponse struct {
