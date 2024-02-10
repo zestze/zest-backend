@@ -24,7 +24,7 @@ func TestDB(t *testing.T) {
 	ctx := context.Background()
 	assert.NoError(store.Reset(ctx))
 
-	posts := mockFetchPosts(t, "test_response.json")
+	posts := mockFetchPosts(t, "mock_api_response.json")
 
 	userID := 1
 	ids, err := store.PersistPosts(ctx, posts, userID)

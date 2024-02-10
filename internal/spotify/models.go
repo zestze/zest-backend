@@ -97,6 +97,14 @@ type PlayHistoryObject struct {
 	Track    TrackObject   `json:"track"`
 }
 
+func (obj PlayHistoryObject) ContextBlob() ([]byte, error) {
+	return jsoniter.Marshal(obj.Context)
+}
+
+func (obj PlayHistoryObject) TrackBlob() ([]byte, error) {
+	return jsoniter.Marshal(obj.Track)
+}
+
 type Secrets struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`

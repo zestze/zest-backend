@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/zestze/zest-backend/internal/zql"
 )
@@ -46,7 +48,7 @@ func TestClient_MakeAuth(t *testing.T) {
 	assert.Equal(token.Access, token2.Access)
 }
 
-func TestClient_LoadAuth(t *testing.T) {
+func TestClient_FetchSongs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test due to running in short mode")
 	}
@@ -76,11 +78,15 @@ func TestClient_LoadAuth(t *testing.T) {
 		assert.NoError(err)
 	}
 
+	// can hardcode this to Feb 10 12:53 PM ET
 	after := time.Now().Add(-time.Hour)
 	items, err := client.GetRecentlyPlayed(ctx, token, after)
 	assert.NoError(err)
-	//assert.Len(items, 3)
-	//assert.True(len(items) > 0)
-	fmt.Printf("first item: %+v\n", items[0])
 
+	// write items
+	f, err := os.Create("test_response.json")
+	assert.NoError(err)
+	defer f.Close()
+	assert.True(len(items) > 0)
+	assert.NoError(jsoniter.NewEncoder(f).Encode(items))
 }

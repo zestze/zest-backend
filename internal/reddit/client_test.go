@@ -15,7 +15,7 @@ import (
 )
 
 func TestFetchPosts(t *testing.T) {
-	client := NewClient(WithRoundTripper(mockRT(t, "test_response.json")))
+	client := NewClient(WithRoundTripper(mockRT(t, "mock_api_response.json")))
 	posts, err := client.Fetch(context.Background(), false)
 	assert.NoError(t, err)
 	assert.True(t, len(posts) > 0)
