@@ -66,7 +66,7 @@ func (s Store) GetToken(ctx context.Context, userID int) (AccessToken, error) {
 
 func (s Store) PersistRecentlyPlayed(
 	ctx context.Context, songs []PlayHistoryObject, userID int,
-) error {
+) ([]string, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
 	defer span.End()
@@ -80,26 +80,29 @@ func (s Store) PersistRecentlyPlayed(
 		artist_id, artist_name, context_blob)
 		VALUES
 		($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT DO NOTHING`)
+		ON CONFLICT
+			DO NOTHING
+		RETURNING track_id`)
 	if err != nil {
 		logger.Error("error preparing statement", "error", err)
-		return err
+		return nil, err
 	}
 	defer stmt.Close()
 
 	tx, err := s.db.Begin()
 	if err != nil {
 		logger.Error("error beginning transaction", "error", err)
-		return err
+		return nil, err
 	}
 
+	persisted := make([]string, 0, len(songs))
 	for _, song := range songs {
 		logger := logger.With(slog.String("track", song.Track.Name))
 		logger.Info("processing track")
 		if len(song.Track.Artists) == 0 {
 			logger.Error("track doesn't have an artist")
 			tx.Rollback()
-			return ErrNoArtist
+			return nil, ErrNoArtist
 		}
 		// assume 0 is 'primary', in future should have denormalized table
 		artist := song.Track.Artists[0]
@@ -107,34 +110,36 @@ func (s Store) PersistRecentlyPlayed(
 		if err != nil {
 			logger.Error("error encoding context blob")
 			tx.Rollback()
-			return err
+			return nil, err
 		}
 		trackBlob, err := song.TrackBlob()
 		if err != nil {
 			logger.Error("error encoding track blob")
 			tx.Rollback()
-			return err
+			return nil, err
 		}
 
-		_, err = tx.Stmt(stmt).
-			ExecContext(ctx,
+		var trackID string
+		err = tx.Stmt(stmt).
+			QueryRowContext(ctx,
 				userID, song.PlayedAt,
 				song.Track.ID, song.Track.Name,
 				trackBlob,
 				song.Track.Album.ID, song.Track.Album.Name,
 				artist.ID, artist.Name,
-				contextBlob)
+				contextBlob).Scan(&trackID)
 
 		if err != nil && errors.Is(err, sql.ErrNoRows) {
 			continue
 		} else if err != nil {
 			logger.Error("error persisting song", "error", err)
 			tx.Rollback()
-			return err
+			return nil, err
 		}
+		persisted = append(persisted, trackID)
 	}
 
-	return tx.Commit()
+	return persisted, tx.Commit()
 }
 
 type SongLite struct {

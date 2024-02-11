@@ -1,3 +1,5 @@
+// these commands are primarily for moving data around in my personal setup.
+// not super important for any of the true logic
 package main
 
 import (
@@ -6,9 +8,37 @@ import (
 
 	"github.com/zestze/zest-backend/internal/metacritic"
 	"github.com/zestze/zest-backend/internal/reddit"
+	"github.com/zestze/zest-backend/internal/spotify"
 	"github.com/zestze/zest-backend/internal/user"
 	"github.com/zestze/zest-backend/internal/zql"
 )
+
+func TransferSpotifyToken(ctx context.Context) {
+	// for running on baremetal
+	targetDB, err := zql.PostgresWithConfig(zql.WithHost("localhost"))
+	if err != nil {
+		panic(err)
+	}
+	defer targetDB.Close()
+
+	sourceDB, err := zql.Sqlite3("internal/spotify/spotify_test.db")
+	if err != nil {
+		panic(err)
+	}
+	defer sourceDB.Close()
+
+	targetStore := spotify.NewStore(targetDB)
+	sourceStore := spotify.NewStore(sourceDB)
+	userID := 1 // hard-coded for me!
+	token, err := sourceStore.GetToken(ctx, userID)
+	if err != nil {
+		panic(err)
+	}
+	err = targetStore.PersistToken(ctx, token, userID)
+	if err != nil {
+		panic(err)
+	}
+}
 
 func Transfer(ctx context.Context, directory, redditFile, metacriticFile, userFile string) {
 	// first load the users!
@@ -19,9 +49,9 @@ func Transfer(ctx context.Context, directory, redditFile, metacriticFile, userFi
 	defer targetDB.Close()
 
 	users := getUsers(ctx, directory+"/"+userFile)
-	usersStore := user.NewStore(targetDB)
+	userStore := user.NewStore(targetDB)
 	for _, u := range users {
-		_, err = usersStore.PersistUser(ctx, u.username, u.password, u.salt)
+		_, err = userStore.PersistUser(ctx, u.username, u.password, u.salt)
 		if err != nil {
 			panic(err)
 		}

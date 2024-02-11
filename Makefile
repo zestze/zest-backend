@@ -1,5 +1,7 @@
 .PHONY: run fmt test deploy scrape serverless help up build clean down
 
+GFLAGS=-tags=jsoniter
+
 ##################
 ## docker commands
 ##################
@@ -21,10 +23,10 @@ down:
 ##################
 
 run:
-	go run -tags=jsoniter ./cmd server
+	go run $(GFLAGS) ./cmd server
 
 help:
-	go run ./cmd --help
+	go run $(GFLAGS) ./cmd --help
 
 fmt:
 	go mod tidy
@@ -35,7 +37,10 @@ test:
 	go test -short ./...
 
 scrape:
-	go run ./cmd scrape reddit
+	go run $(GFLAGS) ./cmd scrape reddit
+
+dump:
+	go run $(GFLAGS) ./cmd dump
 
 ##################
 ## deploy commands

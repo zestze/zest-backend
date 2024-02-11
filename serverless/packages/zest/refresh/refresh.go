@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"os"
+	"slices"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -18,12 +19,22 @@ type Response struct {
 */
 
 type Event struct {
-	// Resource should be set to `metacritic` or `reddit`
+	// Resource should be set to `metacritic` or `reddit` or `spotify`
 	Resource string `json:"resource"`
+}
+
+func (e Event) Valid() bool {
+	options := [3]string{"reddit", "metacritic", "spotify"}
+	return slices.Contains(options[:], e.Resource)
 }
 
 func Main(ctx context.Context, event Event) {
 	logger := log.Default()
+
+	if !slices.Contains([]string{"reddit", "metacritic", "spotify"}, event.Resource) {
+		logger.Fatal("invalid event type: ", event.Resource)
+		return
+	}
 
 	// login first!
 	jar, err := cookiejar.New(nil)
@@ -82,7 +93,7 @@ func Main(ctx context.Context, event Event) {
 		return
 	}
 	resp.Body.Close() // nothing to handle but still should close
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		logger.Fatal("error doing request, status code: ", resp.StatusCode)
 		return
 	}

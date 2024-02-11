@@ -47,6 +47,22 @@ func WithMigrations() (*sql.DB, error) {
 	return db, nil
 }
 
+func PostgresWithConfig(opts ...func(cfg *postgresConfig)) (*sql.DB, error) {
+	cfg := defaultConfig()
+
+	for _, o := range opts {
+		o(&cfg)
+	}
+
+	return sql.Open("pgx", cfg.String())
+}
+
+func WithHost(host string) func(cfg *postgresConfig) {
+	return func(cfg *postgresConfig) {
+		cfg.host = host
+	}
+}
+
 type postgresConfig struct {
 	host     string
 	port     int

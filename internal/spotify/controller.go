@@ -2,7 +2,6 @@ package spotify
 
 import (
 	"database/sql"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -66,11 +65,22 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 		return
 	}
 
-	// TODO(zeke): persist!
-	fmt.Printf("items are: %+v", items)
+	if len(items) == 0 {
+		c.IndentedJSON(http.StatusOK, gin.H{
+			"num_refreshed": 0,
+		})
+		return
+	}
+
+	persisted, err := svc.Store.PersistRecentlyPlayed(c, items, userID)
+	if err != nil {
+		logger.Error("error persisting songs", "error", err)
+		zgin.InternalError(c)
+		return
+	}
 
 	c.IndentedJSON(http.StatusOK, gin.H{
-		"num_refreshed": 0,
+		"num_refreshed": len(persisted),
 	})
 }
 

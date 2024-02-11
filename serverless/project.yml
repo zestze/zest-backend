@@ -34,3 +34,9 @@ packages:
                 cron: "0 8 * * *"
                 withBody:
                   resource: 'metacritic'
+            - name: refresh-spotify-hourly
+              sourceType: scheduler
+              sourceDetails:
+                cron: "0 * * * *"
+                withBody:
+                  resource: 'spotify'

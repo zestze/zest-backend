@@ -78,8 +78,7 @@ func TestClient_FetchSongs(t *testing.T) {
 		assert.NoError(err)
 	}
 
-	// can hardcode this to Feb 10 12:53 PM ET
-	after := time.Now().Add(-time.Hour)
+	after := time.Date(2024, 2, 10, 17, 0, 0, 0, time.UTC)
 	items, err := client.GetRecentlyPlayed(ctx, token, after)
 	assert.NoError(err)
 

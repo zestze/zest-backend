@@ -16,6 +16,7 @@ import (
 	"github.com/zestze/zest-backend/internal/metacritic"
 	"github.com/zestze/zest-backend/internal/reddit"
 	"github.com/zestze/zest-backend/internal/requestid"
+	"github.com/zestze/zest-backend/internal/spotify"
 	"github.com/zestze/zest-backend/internal/user"
 	"github.com/zestze/zest-backend/internal/zql"
 	"github.com/zestze/zest-backend/internal/ztrace"
@@ -113,6 +114,13 @@ func (r *ServerCmd) Run() error {
 			return err
 		}
 		rService.Register(v1, auth)
+
+		sService, err := spotify.New(db)
+		if err != nil {
+			logger.Error("error setting up spotify service", "error", err)
+			return err
+		}
+		sService.Register(v1, auth)
 	}
 
 	{
@@ -162,6 +170,7 @@ type DumpCmd struct {
 }
 
 func (r *DumpCmd) Run() error {
+	//TransferSpotifyToken(context.Background())
 	Transfer(context.Background(), r.BaseDir, r.RedditFile, r.MetacriticFile, r.UserFile)
 	return nil
 }

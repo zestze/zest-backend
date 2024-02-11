@@ -29,13 +29,15 @@ func TestDB(t *testing.T) {
 	songs := mockFetchSongs(t, "mock_api_response.json")
 
 	userID := 1
-	assert.NoError(store.PersistRecentlyPlayed(ctx, songs, userID))
+	persistedTracks, err := store.PersistRecentlyPlayed(ctx, songs, userID)
+	assert.NoError(err)
+	assert.Len(persistedTracks, 5)
 
 	start := time.Date(2024, 2, 10, 17, 0, 0, 0, time.UTC)
 	end := start.Add(time.Hour)
-	persisted, err := store.GetRecentlyPlayed(ctx, userID, start, end)
+	loaded, err := store.GetRecentlyPlayed(ctx, userID, start, end)
 	assert.NoError(err)
-	assert.Len(persisted, 5)
+	assert.Len(loaded, 5)
 }
 
 func mockFetchSongs(t *testing.T, fname string) []PlayHistoryObject {
