@@ -96,6 +96,9 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 
 		posts = append(posts, post)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return posts, nil
 }

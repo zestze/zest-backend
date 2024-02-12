@@ -176,6 +176,9 @@ func (s Store) GetRecentlyPlayed(
 		}
 		songs = append(songs, song)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return songs, nil
 }

@@ -31,6 +31,7 @@ func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g.Use(auth)
 	g.POST("/refresh", zgin.WithUser(svc.refresh))
 	g.POST("/token", zgin.WithUser(svc.addToken))
+	g.GET("/songs", zgin.WithUser(svc.getSongs))
 }
 
 func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
@@ -102,5 +103,34 @@ func (svc Controller) addToken(c *gin.Context, userID int, logger *slog.Logger) 
 
 	c.IndentedJSON(http.StatusCreated, gin.H{
 		"status": "ok",
+	})
+}
+
+func (svc Controller) getSongs(c *gin.Context, userID int, logger *slog.Logger) {
+	now := time.Now().UTC()
+	opts := struct {
+		Start time.Time `form:"start"`
+		End   time.Time `form:"end"`
+	}{
+		Start: now.Add(-time.Hour),
+		End:   now,
+	}
+	if err := c.BindQuery(&opts); err != nil {
+		logger.Error("error binding query for getSongs", "error", err)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{
+			"error": "please provide correct query params",
+		})
+		return
+	}
+
+	songs, err := svc.Store.GetRecentlyPlayed(c, userID, opts.Start, opts.End)
+	if err != nil {
+		logger.Error("error loading recently played songs", "error", err)
+		zgin.InternalError(c)
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, gin.H{
+		"songs": songs,
 	})
 }

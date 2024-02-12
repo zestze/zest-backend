@@ -1,6 +1,7 @@
 .PHONY: run fmt test deploy scrape serverless help up build clean down
 
 GFLAGS=-tags=jsoniter
+GVARS=GOEXPERIMENT=rangefunc
 
 ##################
 ## docker commands
@@ -26,7 +27,7 @@ run:
 	go run $(GFLAGS) ./cmd server
 
 help:
-	go run $(GFLAGS) ./cmd --help
+	$(GVARS) go run $(GFLAGS) ./cmd --help
 
 fmt:
 	go mod tidy

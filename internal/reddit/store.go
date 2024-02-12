@@ -111,6 +111,9 @@ func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
 
 		posts = append(posts, post)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return posts, nil
 }
@@ -138,6 +141,9 @@ func (s Store) GetSubreddits(ctx context.Context, userID int) ([]string, error) 
 			return nil, err
 		}
 		subreddits = append(subreddits, sub)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return subreddits, nil
 }
@@ -172,6 +178,9 @@ func (s Store) GetPostsFor(ctx context.Context, subreddit string, userID int) ([
 		}
 
 		posts = append(posts, post)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return posts, nil
