@@ -1,6 +1,7 @@
 package metacritic
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/zestze/zest-backend/internal/zgin"
 	"github.com/zestze/zest-backend/internal/zlog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/gin-gonic/gin"
 )
@@ -67,44 +69,71 @@ func (svc Controller) getPostsForAPI(c *gin.Context) {
 	})
 }
 
+// since Store and Client both wrap *sq.DB and *http.Client
+// can call worker thread on  Controller instead *Controller
+func (svc Controller) worker(ctx context.Context, opts Options, logger *slog.Logger) error {
+	logger = logger.With(opts.Group())
+	logger.Info("fetching posts")
+	posts, err := svc.Client.FetchPosts(ctx, opts)
+	if err != nil {
+		logger.Error("error fetching posts", "error", err)
+		return err
+	}
+
+	logger.Info("persisting posts")
+	ids, err := svc.Store.PersistPosts(ctx, posts)
+	if err != nil {
+		logger.Error("error persisting posts", "error", err)
+		return err
+	}
+
+	logger.Info("persisted " + strconv.Itoa(len(ids)) + " items")
+
+	// ensure we don't get blacklisted
+	logger.Info("going to sleep")
+	time.Sleep(1 * time.Second)
+	return nil
+}
+
 func (svc Controller) refresh(c *gin.Context) {
 	logger := zlog.Logger(c)
 
 	currYear := time.Now().UTC().Year()
 	const numPages = 5
+
+	g, ctx := errgroup.WithContext(c)
+	const HARDCODED_LIMIT = 20
+	g.SetLimit(HARDCODED_LIMIT)
+
 	for _, m := range AvailableMediums {
-		// just fetch for current year!
-		for i := 1; i <= numPages; i++ {
-			logger := logger.With(slog.String("medium", string(m)),
-				slog.Int("year", currYear),
-				slog.Int("page", i))
+		for i := range numPages {
+			if err := ctx.Err(); err != nil {
+				logger.Error("error from workers", "error", err)
+				zgin.InternalError(c)
+				return
+			}
 
-			logger.Info("fetching posts")
-			posts, err := svc.Client.FetchPosts(c, Options{
-				Medium:  m,
-				MinYear: currYear,
-				MaxYear: currYear,
-				Page:    i,
+			// shadow variables
+			// not necessary in go1.22 but doing it just to be safe
+			i, m := i, m
+			g.Go(func() error {
+				return svc.worker(ctx, Options{
+					Page:    i + 1,
+					Medium:  m,
+					MinYear: currYear,
+					MaxYear: currYear,
+				}, logger)
 			})
-			if err != nil {
-				logger.Error("error fetching posts", "error", err)
-				zgin.InternalError(c)
-				return
-			}
-
-			logger.Info("persisting posts")
-			ids, err := svc.Store.PersistPosts(c, posts)
-			if err != nil {
-				logger.Error("error persisting posts", "error", err)
-				zgin.InternalError(c)
-				return
-			}
-
-			logger.Info("persisted " + strconv.Itoa(len(ids)) + " items")
-
-			// ensure we don't get blacklisted
-			logger.Info("going to sleep")
-			time.Sleep(1 * time.Second)
 		}
 	}
+
+	if err := g.Wait(); err != nil {
+		logger.Error("error from worker threads", "error", err)
+		zgin.InternalError(c)
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, gin.H{
+		"status": "ok",
+	})
 }
