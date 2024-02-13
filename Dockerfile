@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.21 as build
+FROM golang:1.22 as build
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 # TODO(zeke): if we introduce pkg dir, need to copy it here
 
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN CGO_ENABLED=0 GOOS=linux GOEXPERIMENT=rangefunc go build \
      -tags=jsoniter -v -o /zest-api ./cmd/
 
 FROM scratch

@@ -1,33 +1,37 @@
 .PHONY: run fmt test deploy scrape serverless help up build clean down
 
-GFLAGS=-tags=jsoniter
-GVARS=GOEXPERIMENT=rangefunc
-
 ##################
 ## docker commands
 ##################
+DOCKER=sudo docker
+COMPOSE=$(DOCKER) compose
 
 build:
-	sudo docker compose build
+	$(COMPOSE) build
 
 up: build
-	sudo docker compose up -d
+	$(COMPOSE) up -d
 
 clean:
-	sudo docker system prune -a
+	$(DOCKER) system prune -a
 
 down:
-	sudo docker compose down
+	$(COMPOSE) down
 
 ##################
 ## go tool commands
 ##################
 
+GFLAGS=-tags=jsoniter
+GVARS=GOEXPERIMENT=rangefunc
+GORUN=$(GVARS) go run $(GFLAGS)
+
+
 run:
-	go run $(GFLAGS) ./cmd server
+	$(GORUN) ./cmd server
 
 help:
-	$(GVARS) go run $(GFLAGS) ./cmd --help
+	$(GORUN) ./cmd --help
 
 fmt:
 	go mod tidy
@@ -38,17 +42,17 @@ test:
 	go test -short ./...
 
 scrape:
-	go run $(GFLAGS) ./cmd scrape reddit
+	$(GORUN) ./cmd scrape reddit
 
 dump:
-	go run $(GFLAGS) ./cmd dump
+	$(GORUN) ./cmd dump
 
 ##################
 ## deploy commands
 ##################
 
 deploy: build
-	sudo docker save zest-backend-zest-api > zest-api.tar
+	$(DOCKER) save zest-backend-zest-api > zest-api.tar
 	scp zest-api.tar droplet:~/workspace/zest-api.tar
 	ssh droplet 'make -C workspace deploy'
 
