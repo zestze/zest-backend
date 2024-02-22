@@ -32,6 +32,7 @@ func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g.POST("/refresh", zgin.WithUser(svc.refresh))
 	g.POST("/token", zgin.WithUser(svc.addToken))
 	g.GET("/songs", zgin.WithUser(svc.getSongs))
+	g.GET("/artists", zgin.WithUser(svc.getArtists))
 }
 
 func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
@@ -107,14 +108,7 @@ func (svc Controller) addToken(c *gin.Context, userID int, logger *slog.Logger) 
 }
 
 func (svc Controller) getSongs(c *gin.Context, userID int, logger *slog.Logger) {
-	now := time.Now().UTC()
-	opts := struct {
-		Start time.Time `form:"start"`
-		End   time.Time `form:"end"`
-	}{
-		Start: now.Add(-time.Hour),
-		End:   now,
-	}
+	opts := defaultOptions()
 	if err := c.BindQuery(&opts); err != nil {
 		logger.Error("error binding query for getSongs", "error", err)
 		c.IndentedJSON(http.StatusBadRequest, gin.H{
@@ -133,4 +127,39 @@ func (svc Controller) getSongs(c *gin.Context, userID int, logger *slog.Logger) 
 	c.IndentedJSON(http.StatusOK, gin.H{
 		"songs": songs,
 	})
+}
+
+func (svc Controller) getArtists(c *gin.Context, userID int, logger *slog.Logger) {
+	opts := defaultOptions()
+	if err := c.BindQuery(&opts); err != nil {
+		logger.Error("error binding query for getArtists", "error", err)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{
+			"error": "please provide correct query params",
+		})
+		return
+	}
+
+	artists, err := svc.Store.GetRecentlyPlayedByArtist(c, userID, opts.Start, opts.End)
+	if err != nil {
+		logger.Error("error loading recently played artists", "error", err)
+		zgin.InternalError(c)
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, gin.H{
+		"artists": artists,
+	})
+}
+
+type Options struct {
+	Start time.Time `form:"start"`
+	End   time.Time `form:"end"`
+}
+
+func defaultOptions() Options {
+	now := time.Now().UTC()
+	return Options{
+		Start: now.Add(-time.Hour),
+		End:   now,
+	}
 }

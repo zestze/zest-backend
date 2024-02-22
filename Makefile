@@ -26,19 +26,18 @@ GFLAGS=-tags=jsoniter
 GVARS=GOEXPERIMENT=rangefunc
 GORUN=$(GVARS) go run $(GFLAGS)
 
-
-run:
-	$(GORUN) ./cmd server
-
-help:
-	$(GORUN) ./cmd --help
-
 fmt:
 	go mod tidy
 	go fmt ./...
 	go vet ./...
 
-test:
+run: fmt
+	$(GORUN) ./cmd server
+
+help: fmt
+	$(GORUN) ./cmd --help
+
+test: fmt
 	go test -short ./...
 
 scrape:

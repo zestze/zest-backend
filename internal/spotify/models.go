@@ -75,6 +75,9 @@ type Identifier struct {
 
 // TrackObject is not exhaustive!
 // just the core fields
+//
+// in postgreSQL to get the nested genres field, need to do:
+// `SELECT track_blob->'artists'->0->'genres' FROM spotify_songs;`
 type TrackObject struct {
 	Identifier
 	Album struct {

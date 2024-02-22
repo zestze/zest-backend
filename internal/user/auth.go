@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	ErrInvalidIP error  = errors.New("invalid IP")
-	UserIdKey    string = "zest.user_id"
+	ErrInvalidIP = errors.New("invalid IP")
+	UserIdKey    = "zest.user_id"
 )
 
 type item struct {

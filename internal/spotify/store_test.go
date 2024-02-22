@@ -2,6 +2,7 @@ package spotify
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -38,6 +39,11 @@ func TestDB(t *testing.T) {
 	loaded, err := store.GetRecentlyPlayed(ctx, userID, start, end)
 	assert.NoError(err)
 	assert.Len(loaded, 5)
+
+	artistMap, err := store.GetRecentlyPlayedByArtist(ctx, userID, start, end)
+	assert.NoError(err)
+	fmt.Println(artistMap)
+	assert.Len(artistMap, 7)
 }
 
 func mockFetchSongs(t *testing.T, fname string) []PlayHistoryObject {
