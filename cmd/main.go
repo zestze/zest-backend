@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	sloggin "github.com/samber/slog-gin"
 	"log/slog"
 	"net/http"
 	"os"
@@ -15,7 +16,6 @@ import (
 	cors "github.com/rs/cors/wrapper/gin"
 	"github.com/zestze/zest-backend/internal/metacritic"
 	"github.com/zestze/zest-backend/internal/reddit"
-	"github.com/zestze/zest-backend/internal/requestid"
 	"github.com/zestze/zest-backend/internal/spotify"
 	"github.com/zestze/zest-backend/internal/user"
 	"github.com/zestze/zest-backend/internal/zql"
@@ -56,6 +56,11 @@ func (r *ServerCmd) Group() slog.Attr {
 func (r *ServerCmd) Run() error {
 	ctx := context.Background()
 	addr := ":" + strconv.Itoa(r.Port)
+	if !gin.IsDebugging() {
+		jsonLogger := slog.New(slog.NewJSONHandler(os.Stdout, nil)).
+			With("container", os.Getenv("HOSTNAME"))
+		slog.SetDefault(jsonLogger)
+	}
 	logger := slog.Default().With(r.Group())
 	logger.Info("starting server on " + addr)
 
@@ -73,15 +78,11 @@ func (r *ServerCmd) Run() error {
 
 	router := gin.New()
 	router.Use(
-		gin.LoggerWithConfig(gin.LoggerConfig{
-			SkipPaths: []string{
-				"/metrics",
-				"/health",
-			},
-		}),
+		sloggin.NewWithFilters(slog.Default(),
+			sloggin.IgnorePath("/metrics"),
+			sloggin.IgnorePath("/health")),
 		gin.Recovery(),
 		cors.Default(),
-		requestid.New(),
 		otelgin.Middleware(
 			r.ServiceName,
 			otelgin.WithSpanNameFormatter(ztrace.SpanName),
