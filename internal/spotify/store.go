@@ -6,6 +6,7 @@ import (
 	"errors"
 	jsoniter "github.com/json-iterator/go"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/zestze/zest-backend/internal/zlog"
@@ -184,6 +185,14 @@ func (s Store) GetRecentlyPlayed(
 	return songs, nil
 }
 
+type artistBlob struct {
+	Name string `json:"name"`
+}
+
+type TrackBlob struct {
+	Artists []artistBlob `json:"artists"`
+}
+
 // GetRecentlyPlayedByArtist returns a map of artist names to the number of times
 // they appear in the user's recently played songs.
 func (s Store) GetRecentlyPlayedByArtist(
@@ -210,11 +219,7 @@ func (s Store) GetRecentlyPlayedByArtist(
 			return nil, err
 		}
 		artistCounts[artistName] += 1
-		var track struct {
-			Artists []struct {
-				Name string `json:"name"`
-			} `json:"artists"`
-		}
+		var track TrackBlob
 		if err = jsoniter.UnmarshalFromString(trackBlob, &track); err != nil {
 			return nil, err
 		}
@@ -226,6 +231,50 @@ func (s Store) GetRecentlyPlayedByArtist(
 		return nil, err
 	}
 	return artistCounts, nil
+}
+
+// TODO(zeke): really need to setup multiple tables for this kind of relationship...
+func (s Store) GetRecentlyPlayedForArtist(
+	ctx context.Context, userID int, artist string, start, end time.Time,
+) (map[string]int, error) {
+	logger := zlog.Logger(ctx)
+	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
+	defer span.End()
+
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT track_name, artist_name, track_blob
+		FROM spotify_songs
+		WHERE user_id=$1 AND $2 <= played_at and played_at <= $3`,
+		userID, artist, start, end)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		logger.Error("encountered internal error when scanning spotify songs", "error", err)
+	}
+	defer rows.Close()
+
+	songCounts := make(map[string]int)
+	for rows.Next() {
+		var trackName, artistName, trackBlob string
+		if err := rows.Scan(&trackName, &artistName, &trackBlob); err != nil {
+			return nil, err
+		}
+		if artistName == artist {
+			songCounts[trackName] += 1
+			continue
+		}
+		var track TrackBlob
+		if err = jsoniter.UnmarshalFromString(trackBlob, &track); err != nil {
+			return nil, err
+		}
+		if slices.ContainsFunc(track.Artists[1:], func(a artistBlob) bool {
+			return a.Name == artist
+		}) {
+			songCounts[trackName] += 1
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return songCounts, nil
 }
 
 func (s Store) Reset(ctx context.Context) error {
