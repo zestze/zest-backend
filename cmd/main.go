@@ -172,7 +172,8 @@ type DumpCmd struct {
 
 func (r *DumpCmd) Run() error {
 	//TransferSpotifyToken(context.Background())
-	Transfer(context.Background(), r.BaseDir, r.RedditFile, r.MetacriticFile, r.UserFile)
+	//Transfer(context.Background(), r.BaseDir, r.RedditFile, r.MetacriticFile, r.UserFile)
+	TransferSpotifySongs(context.Background())
 	return nil
 }
 

@@ -35,7 +35,7 @@ func TestClient_MakeAuth(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	store := NewStore(db)
+	store := NewStoreV1(db)
 
 	assert.NoError(store.Reset(ctx))
 
@@ -57,7 +57,7 @@ func TestClient_FetchSongs(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	store := NewStore(db)
+	store := NewStoreV1(db)
 
 	ctx := context.Background()
 	hardcodedID := 1

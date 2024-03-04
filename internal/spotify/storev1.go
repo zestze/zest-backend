@@ -15,66 +15,64 @@ import (
 
 var ErrNoArtist = errors.New("no artist provided for song")
 
-type Store struct {
+// StoreV1 is the "V1" implementation of the spotify store.
+// it is a denormalized table that stores the user's recently played songs.
+type StoreV1 struct {
 	db *sql.DB
+	TokenStore
 }
 
-func NewStore(db *sql.DB) Store {
-	return Store{
-		db: db,
+func NewStoreV1(db *sql.DB) StoreV1 {
+	return StoreV1{
+		db:         db,
+		TokenStore: NewTokenStore(db),
 	}
 }
 
-func (s Store) PersistToken(ctx context.Context, token AccessToken, userID int) error {
-	logger := zlog.Logger(ctx)
-	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
-	defer span.End()
-
-	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO spotify_tokens
-		(user_id, access_token, token_type, scope, expires_at, refresh_token)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (user_id) 
-			DO UPDATE SET
-			access_token=excluded.access_token,
-			refresh_token=excluded.refresh_token,
-			expires_at=excluded.expires_at`,
-		userID, token.Access, token.Type, token.Scope,
-		token.ExpiresAt, token.Refresh); err != nil {
-		logger.Error("error persisting spotify tokens", "error", err)
-		return err
-	}
-	return nil
-}
-
-func (s Store) GetToken(ctx context.Context, userID int) (AccessToken, error) {
+func (s StoreV1) GetAll(ctx context.Context, userID int) ([]PlayHistoryObject, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
 
-	var token AccessToken
-	err := s.db.QueryRowContext(ctx,
-		`SELECT access_token, token_type, scope, expires_at, refresh_token
-		FROM spotify_tokens
-		WHERE user_id=$1`, userID).
-		Scan(&token.Access, &token.Type, &token.Scope,
-			&token.ExpiresAt, &token.Refresh)
-
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("encountered internal error when scanning spotify auth", "error", err)
+	rows, err := s.db.QueryContext(ctx, `
+SELECT played_at, track_blob, context_blob
+FROM spotify_songs
+WHERE user_id=$1`, userID)
+	if err != nil {
+		logger.Error("error querying for rows", "error", err)
+		return nil, err
 	}
-	return token, err
+
+	songs := make([]PlayHistoryObject, 0)
+	for rows.Next() {
+		var song PlayHistoryObject
+		var trackBlob, contextBlob string
+		if err := rows.Scan(&song.PlayedAt, &trackBlob, &contextBlob); err != nil {
+			return nil, err
+		}
+
+		// can scan most of the info from the blobs!
+		if err = jsoniter.UnmarshalFromString(contextBlob, &song.Context); err != nil {
+			return nil, err
+		}
+		if err = jsoniter.UnmarshalFromString(trackBlob, &song.Track); err != nil {
+			return nil, err
+		}
+		songs = append(songs, song)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return songs, nil
 }
 
-func (s Store) PersistRecentlyPlayed(
+func (s StoreV1) PersistRecentlyPlayed(
 	ctx context.Context, songs []PlayHistoryObject, userID int,
 ) ([]string, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
 	defer span.End()
 
-	// TODO(zeke): at scale, might want to have "artist" and "album" tables
-	// since i'm recreating a lot of data over and over. even "track" could work!
 	stmt, err := s.db.PrepareContext(ctx,
 		`INSERT INTO spotify_songs
 		(user_id, played_at, track_id,
@@ -144,22 +142,15 @@ func (s Store) PersistRecentlyPlayed(
 	return persisted, tx.Commit()
 }
 
-type SongLite struct {
-	PlayedAt   time.Time `json:"played_at"`
-	TrackName  string    `json:"track_name"`
-	AlbumName  string    `json:"album_name"`
-	ArtistName string    `json:"artist_name"`
-}
-
-func (s Store) GetRecentlyPlayed(
+func (s StoreV1) GetRecentlyPlayed(
 	ctx context.Context, userID int, start, end time.Time,
-) ([]SongLite, error) {
+) ([]NameWithTime, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT played_at, track_name, album_name, artist_name
+		`SELECT played_at, track_name
 		FROM spotify_songs
 		WHERE user_id=$1 AND $2 <= played_at and played_at <= $3`,
 		userID, start, end)
@@ -169,11 +160,10 @@ func (s Store) GetRecentlyPlayed(
 	}
 	defer rows.Close()
 
-	songs := make([]SongLite, 0)
+	songs := make([]NameWithTime, 0)
 	for rows.Next() {
-		var song SongLite
-		if err := rows.Scan(&song.PlayedAt, &song.TrackName,
-			&song.AlbumName, &song.ArtistName); err != nil {
+		var song NameWithTime
+		if err := rows.Scan(&song.Time, &song.Name); err != nil {
 			return nil, err
 		}
 		songs = append(songs, song)
@@ -195,9 +185,9 @@ type TrackBlob struct {
 
 // GetRecentlyPlayedByArtist returns a map of artist names to the number of times
 // they appear in the user's recently played songs.
-func (s Store) GetRecentlyPlayedByArtist(
+func (s StoreV1) GetRecentlyPlayedByArtist(
 	ctx context.Context, userID int, start, end time.Time,
-) (map[string]int, error) {
+) ([]NameWithListens, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
@@ -230,13 +220,29 @@ func (s Store) GetRecentlyPlayedByArtist(
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	return artistCounts, nil
+
+	return toSlice(artistCounts), nil
+}
+
+// should be a better way of doing this...
+func toSlice(m map[string]int) []NameWithListens {
+	s := make([]NameWithListens, 0, len(m))
+	for k, v := range m {
+		s = append(s, NameWithListens{
+			Name:    k,
+			Listens: v,
+		})
+	}
+	slices.SortFunc(s, func(a, b NameWithListens) int {
+		return b.Listens - a.Listens
+	})
+	return s
 }
 
 // TODO(zeke): really need to setup multiple tables for this kind of relationship...
-func (s Store) GetRecentlyPlayedForArtist(
+func (s StoreV1) GetRecentlyPlayedForArtist(
 	ctx context.Context, userID int, artist string, start, end time.Time,
-) (map[string]int, error) {
+) ([]NameWithListens, error) {
 	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
@@ -274,10 +280,10 @@ func (s Store) GetRecentlyPlayedForArtist(
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	return songCounts, nil
+	return toSlice(songCounts), nil
 }
 
-func (s Store) Reset(ctx context.Context) error {
+func (s StoreV1) Reset(ctx context.Context) error {
 	logger := zlog.Logger(ctx)
 
 	if _, err := s.db.Exec(`

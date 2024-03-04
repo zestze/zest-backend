@@ -22,7 +22,7 @@ func TestDB(t *testing.T) {
 	db, err := zql.Sqlite3(f.Name())
 	assert.NoError(err)
 	defer db.Close()
-	store := NewStore(db)
+	store := NewStoreV1(db)
 
 	ctx := context.Background()
 	assert.NoError(store.Reset(ctx))

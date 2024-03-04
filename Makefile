@@ -1,4 +1,4 @@
-.PHONY: run fmt test deploy scrape serverless help up build clean down
+.PHONY: run fmt test deploy scrape serverless help up build clean down up-debug down-with-volumes
 
 ##################
 ## docker commands
@@ -12,11 +12,17 @@ build:
 up: build
 	$(COMPOSE) up -d
 
+up-debug: build
+	$(COMPOSE) --profile debug up -d
+
 clean:
 	$(DOCKER) system prune -a
 
 down:
 	$(COMPOSE) down
+
+down-with-volumes:
+	$(COMPOSE) down -v
 
 ##################
 ## go tool commands

@@ -8,40 +8,6 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-type AccessToken struct {
-	Access    string `json:"access_token"`
-	Type      string `json:"token_type"`
-	Scope     string `json:"scope"`
-	ExpiresIn int    `json:"expires_in"`
-	Refresh   string `json:"refresh_token"`
-	// not set by spotify API
-	ExpiresAt time.Time `json:"expires_at"`
-}
-
-func merge[T comparable](v, fallback T) T {
-	var zero T
-	if v == zero {
-		return fallback
-	}
-	return v
-}
-
-func (old AccessToken) Merge(refreshed AccessToken) AccessToken {
-	return AccessToken{
-		Access:    merge(refreshed.Access, old.Access),
-		Type:      merge(refreshed.Type, old.Type),
-		Scope:     merge(refreshed.Scope, old.Scope),
-		ExpiresIn: merge(refreshed.ExpiresIn, old.ExpiresIn),
-		Refresh:   merge(refreshed.Refresh, old.Refresh),
-		ExpiresAt: merge(refreshed.ExpiresAt, old.ExpiresAt),
-	}
-}
-
-// Expired checks if the access token has expired, with a little buffer room
-func (at AccessToken) Expired() bool {
-	return time.Now().Add(time.Minute).After(at.ExpiresAt)
-}
-
 type ApiResponse struct {
 	Href    string `json:"href"`
 	Limit   int    `json:"limit"`

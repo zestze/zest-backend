@@ -1,6 +1,7 @@
 package spotify
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"net/http"
@@ -11,8 +12,9 @@ import (
 )
 
 type Controller struct {
-	Client Client
-	Store  Store
+	Client  Client
+	StoreV1 GeneralStore
+	StoreV2 GeneralStore
 }
 
 func New(db *sql.DB) (Controller, error) {
@@ -21,8 +23,9 @@ func New(db *sql.DB) (Controller, error) {
 		return Controller{}, err
 	}
 	return Controller{
-		Client: client,
-		Store:  NewStore(db),
+		Client:  client,
+		StoreV1: NewStoreV1(db),
+		StoreV2: NewStoreV2(db),
 	}, nil
 }
 
@@ -37,7 +40,7 @@ func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 }
 
 func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
-	token, err := svc.Store.GetToken(c, userID)
+	token, err := svc.StoreV2.GetToken(c, userID)
 	if err != nil {
 		logger.Error("error fetching token", "error", err)
 		zgin.InternalError(c)
@@ -53,7 +56,7 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 			return
 		}
 
-		if err = svc.Store.PersistToken(c, token, userID); err != nil {
+		if err = svc.StoreV2.PersistToken(c, token, userID); err != nil {
 			logger.Error("error persisting token", "error", err)
 			zgin.InternalError(c)
 			return
@@ -75,7 +78,15 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 		return
 	}
 
-	persisted, err := svc.Store.PersistRecentlyPlayed(c, items, userID)
+	// persist songs via both methods!
+	persisted, err := svc.StoreV1.PersistRecentlyPlayed(c, items, userID)
+	if err != nil {
+		logger.Error("error persisting songs", "error", err)
+		zgin.InternalError(c)
+		return
+	}
+
+	_, err = svc.StoreV2.PersistRecentlyPlayed(c, items, userID)
 	if err != nil {
 		logger.Error("error persisting songs", "error", err)
 		zgin.InternalError(c)
@@ -97,7 +108,7 @@ func (svc Controller) addToken(c *gin.Context, userID int, logger *slog.Logger) 
 		return
 	}
 
-	if err := svc.Store.PersistToken(c, token, userID); err != nil {
+	if err := svc.StoreV2.PersistToken(c, token, userID); err != nil {
 		logger.Error("error persisting token", "error", err)
 		zgin.InternalError(c)
 		return
@@ -118,7 +129,7 @@ func (svc Controller) getSongs(c *gin.Context, userID int, logger *slog.Logger) 
 		return
 	}
 
-	songs, err := svc.Store.GetRecentlyPlayed(c, userID, opts.Start, opts.End)
+	songs, err := svc.StoreV2.GetRecentlyPlayed(c, userID, opts.Start, opts.End)
 	if err != nil {
 		logger.Error("error loading recently played songs", "error", err)
 		zgin.InternalError(c)
@@ -140,7 +151,7 @@ func (svc Controller) getArtists(c *gin.Context, userID int, logger *slog.Logger
 		return
 	}
 
-	artists, err := svc.Store.GetRecentlyPlayedByArtist(c, userID, opts.Start, opts.End)
+	artists, err := svc.StoreV2.GetRecentlyPlayedByArtist(c, userID, opts.Start, opts.End)
 	if err != nil {
 		logger.Error("error loading recently played artists", "error", err)
 		zgin.InternalError(c)
@@ -167,7 +178,7 @@ func (svc Controller) getSongsForArtist(c *gin.Context, userID int, logger *slog
 		return
 	}
 
-	songs, err := svc.Store.GetRecentlyPlayedForArtist(c, userID, opts.Artist, opts.Start, opts.End)
+	songs, err := svc.StoreV2.GetRecentlyPlayedForArtist(c, userID, opts.Artist, opts.Start, opts.End)
 	if err != nil {
 		logger.Error("error loading recently played songs for artist", "error", err)
 		zgin.InternalError(c)
@@ -190,4 +201,23 @@ func defaultOptions() Options {
 		Start: now.Add(-time.Hour),
 		End:   now,
 	}
+}
+
+// GeneralStore is a minimal abstraction over the two Store structs.
+// this is so that it's clear to the controller what methods are available
+type GeneralStore interface {
+	PersistRecentlyPlayed(
+		ctx context.Context, songs []PlayHistoryObject, userID int,
+	) ([]string, error)
+	GetRecentlyPlayed(
+		ctx context.Context, userID int, start, end time.Time,
+	) ([]NameWithTime, error)
+	GetRecentlyPlayedByArtist(
+		ctx context.Context, userID int, start, end time.Time,
+	) ([]NameWithListens, error)
+	GetRecentlyPlayedForArtist(
+		ctx context.Context, userID int, artist string, start, end time.Time,
+	) ([]NameWithListens, error)
+	PersistToken(ctx context.Context, token AccessToken, userID int) error
+	GetToken(ctx context.Context, userID int) (AccessToken, error)
 }

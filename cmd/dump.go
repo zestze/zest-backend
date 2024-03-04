@@ -27,8 +27,8 @@ func TransferSpotifyToken(ctx context.Context) {
 	}
 	defer sourceDB.Close()
 
-	targetStore := spotify.NewStore(targetDB)
-	sourceStore := spotify.NewStore(sourceDB)
+	targetStore := spotify.NewStoreV1(targetDB)
+	sourceStore := spotify.NewStoreV1(sourceDB)
 	userID := 1 // hard-coded for me!
 	token, err := sourceStore.GetToken(ctx, userID)
 	if err != nil {
@@ -38,6 +38,28 @@ func TransferSpotifyToken(ctx context.Context) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func TransferSpotifySongs(ctx context.Context) {
+	db, err := zql.WithMigrations()
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	storeV1 := spotify.NewStoreV1(db)
+	storeV2 := spotify.NewStoreV2(db)
+	userID := 1 // hard-coded for me!
+	songs, err := storeV1.GetAll(ctx, userID)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = storeV2.PersistRecentlyPlayed(ctx, songs, userID)
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 func Transfer(ctx context.Context, directory, redditFile, metacriticFile, userFile string) {
