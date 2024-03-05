@@ -3,6 +3,7 @@ package metacritic
 import (
 	"context"
 	"errors"
+	"github.com/zestze/zest-backend/internal/zql"
 
 	"database/sql"
 
@@ -58,8 +59,7 @@ func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) 
 		} else if err != nil {
 			logger.Error("error persisting post", "title", post.Title,
 				"error", err)
-			tx.Rollback()
-			return nil, err
+			return nil, zql.Rollback(tx, err)
 		}
 		ids = append(ids, id)
 	}

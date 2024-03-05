@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/zestze/zest-backend/internal/zql"
 
 	"github.com/zestze/zest-backend/internal/zlog"
 	"github.com/zestze/zest-backend/internal/ztrace"
@@ -71,8 +72,7 @@ func (s Store) PersistPosts(
 		} else if err != nil {
 			logger.Error("error persisting post", "permalink", post.Permalink,
 				"error", err)
-			tx.Rollback()
-			return nil, err
+			return nil, zql.Rollback(tx, err)
 		}
 
 		ids = append(ids, id)

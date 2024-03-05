@@ -1,10 +1,10 @@
-.PHONY: run fmt test deploy scrape serverless help up build clean down up-debug down-with-volumes
-
 ##################
 ## docker commands
 ##################
 DOCKER=sudo docker
 COMPOSE=$(DOCKER) compose
+
+.PHONY: build up up-debug up-monitoring clean down down-with-volumes
 
 build:
 	$(COMPOSE) build
@@ -14,6 +14,9 @@ up: build
 
 up-debug: build
 	$(COMPOSE) --profile debug up -d
+
+up-monitoring: build
+	$(COMPOSE) --profile monitoring up -d
 
 clean:
 	$(DOCKER) system prune -a
@@ -31,6 +34,8 @@ down-with-volumes:
 GFLAGS=-tags=jsoniter
 GVARS=GOEXPERIMENT=rangefunc
 GORUN=$(GVARS) go run $(GFLAGS)
+
+.PHONY: fmt run help test scrape dump
 
 fmt:
 	go mod tidy
@@ -55,6 +60,8 @@ dump:
 ##################
 ## deploy commands
 ##################
+
+.PHONY: deploy serverless
 
 deploy: build
 	$(DOCKER) save zest-backend-zest-api > zest-api.tar

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/zestze/zest-backend/internal/zql"
 	"log/slog"
 	"slices"
 	"time"
@@ -101,22 +102,19 @@ func (s StoreV1) PersistRecentlyPlayed(
 		logger.Info("processing track")
 		if len(song.Track.Artists) == 0 {
 			logger.Error("track doesn't have an artist")
-			tx.Rollback()
-			return nil, ErrNoArtist
+			return nil, zql.Rollback(tx, ErrNoArtist)
 		}
 		// assume 0 is 'primary', in future should have denormalized table
 		artist := song.Track.Artists[0]
 		contextBlob, err := song.ContextBlob()
 		if err != nil {
 			logger.Error("error encoding context blob")
-			tx.Rollback()
-			return nil, err
+			return nil, zql.Rollback(tx, err)
 		}
 		trackBlob, err := song.TrackBlob()
 		if err != nil {
 			logger.Error("error encoding track blob")
-			tx.Rollback()
-			return nil, err
+			return nil, zql.Rollback(tx, err)
 		}
 
 		var trackID string
@@ -133,8 +131,7 @@ func (s StoreV1) PersistRecentlyPlayed(
 			continue
 		} else if err != nil {
 			logger.Error("error persisting song", "error", err)
-			tx.Rollback()
-			return nil, err
+			return nil, zql.Rollback(tx, err)
 		}
 		persisted = append(persisted, trackID)
 	}

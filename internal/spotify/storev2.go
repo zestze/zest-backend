@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/zestze/zest-backend/internal/zlog"
+	"github.com/zestze/zest-backend/internal/zql"
 	"github.com/zestze/zest-backend/internal/ztrace"
 	"log/slog"
 	"time"
@@ -33,8 +34,7 @@ func (s StoreV2) PersistRecentlyPlayed(
 	tx, err := s.db.Begin()
 	if err != nil {
 		logger.Error("error beginning transaction", "error", err)
-		tx.Rollback()
-		return nil, err
+		return nil, zql.Rollback(tx, err)
 	}
 
 	persisted := make([]string, 0)
@@ -43,8 +43,7 @@ func (s StoreV2) PersistRecentlyPlayed(
 		trackID, err := persistSong(ctx, tx, song, userID)
 		if err != nil {
 			logger.Error("error persisting song", "error", err)
-			tx.Rollback()
-			return nil, err
+			return nil, zql.Rollback(tx, err)
 		}
 		persisted = append(persisted, trackID)
 	}

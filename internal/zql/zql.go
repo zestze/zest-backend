@@ -87,3 +87,8 @@ func defaultConfig() postgresConfig {
 		password: "reyna",
 	}
 }
+
+// Rollback just rolls back the current transaction and joins the error to the original err if applicable
+func Rollback(tx *sql.Tx, originalErr error) error {
+	return errors.Join(originalErr, tx.Rollback())
+}
