@@ -62,6 +62,6 @@ loki.process "process_logs" {
 
 loki.write "loki_instance" {
     endpoint {
-        url = "http://loki:3100/loki/api/v1/push"
+        url = format("http://%s/loki/api/v1/push", env("LOKI_HOST"))
     }
 }

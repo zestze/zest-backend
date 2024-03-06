@@ -31,9 +31,9 @@ func NewStoreV1(db *sql.DB) StoreV1 {
 }
 
 func (s StoreV1) GetAll(ctx context.Context, userID int) ([]PlayHistoryObject, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
 SELECT played_at, track_blob, context_blob
@@ -70,9 +70,9 @@ WHERE user_id=$1`, userID)
 func (s StoreV1) PersistRecentlyPlayed(
 	ctx context.Context, songs []PlayHistoryObject, userID int,
 ) ([]string, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
 		`INSERT INTO spotify_songs
@@ -142,9 +142,9 @@ func (s StoreV1) PersistRecentlyPlayed(
 func (s StoreV1) GetRecentlyPlayed(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithTime, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT played_at, track_name
@@ -185,9 +185,9 @@ type TrackBlob struct {
 func (s StoreV1) GetRecentlyPlayedByArtist(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithListens, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT artist_name, track_blob
@@ -240,9 +240,9 @@ func toSlice(m map[string]int) []NameWithListens {
 func (s StoreV1) GetRecentlyPlayedForArtist(
 	ctx context.Context, userID int, artist string, start, end time.Time,
 ) ([]NameWithListens, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT track_name, artist_name, track_blob

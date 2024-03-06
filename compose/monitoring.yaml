@@ -53,6 +53,7 @@ services:
       - ../configs/config.river:/etc/agent/config.river
     environment:
       - AGENT_MODE=flow
+      - LOKI_HOST=loki:3100
     ports:
       - 12345:12345 # debugging UI
     depends_on:

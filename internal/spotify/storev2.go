@@ -26,9 +26,9 @@ func NewStoreV2(db *sql.DB) StoreV2 {
 func (s StoreV2) PersistRecentlyPlayed(
 	ctx context.Context, songs []PlayHistoryObject, userID int,
 ) ([]string, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	// for each item, create all necessary rows
 	tx, err := s.db.Begin()
@@ -59,9 +59,9 @@ type NameWithTime struct {
 func (s StoreV2) GetRecentlyPlayed(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithTime, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
 SELECT played_at, spotify_tracks.name
@@ -92,9 +92,9 @@ WHERE user_id=$1
 func (s StoreV2) GetRecentlyPlayedByArtist(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithListens, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
 SELECT spotify_artists.name as artist_name, COUNT(spotify_played_tracks.played_at) as num_listens 
@@ -134,9 +134,9 @@ type NameWithListens struct {
 func (s StoreV2) GetRecentlyPlayedForArtist(
 	ctx context.Context, userID int, artist string, start, end time.Time,
 ) ([]NameWithListens, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
 SELECT spotify_played_tracks.name as track_name, COUNT(spotify_played_tracks.played_at) as num_listens 

@@ -54,9 +54,9 @@ func NewTokenStore(db *sql.DB) TokenStore {
 }
 
 func (s TokenStore) PersistToken(ctx context.Context, token AccessToken, userID int) error {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	if _, err := s.db.ExecContext(ctx,
 		`INSERT INTO spotify_tokens
@@ -76,9 +76,9 @@ func (s TokenStore) PersistToken(ctx context.Context, token AccessToken, userID 
 }
 
 func (s TokenStore) GetToken(ctx context.Context, userID int) (AccessToken, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	var token AccessToken
 	err := s.db.QueryRowContext(ctx,

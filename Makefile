@@ -22,7 +22,7 @@ clean:
 	$(DOCKER) system prune -a
 
 down:
-	$(COMPOSE) down
+	$(COMPOSE) --profile monitoring --profile debug down
 
 down-with-volumes:
 	$(COMPOSE) down -v

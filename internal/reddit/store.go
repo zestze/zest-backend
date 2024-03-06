@@ -23,9 +23,9 @@ func NewStore(db *sql.DB) Store {
 func (s Store) PersistPosts(
 	ctx context.Context, savedPosts []Post, userID int,
 ) ([]int64, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Persist")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
 		`INSERT INTO reddit_posts 
@@ -82,9 +82,9 @@ func (s Store) PersistPosts(
 }
 
 func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT permalink, subreddit, score, title, name, 
@@ -119,9 +119,9 @@ func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
 }
 
 func (s Store) GetSubreddits(ctx context.Context, userID int) ([]string, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT DISTINCT(subreddit)
@@ -149,9 +149,9 @@ func (s Store) GetSubreddits(ctx context.Context, userID int) ([]string, error) 
 }
 
 func (s Store) GetPostsFor(ctx context.Context, subreddit string, userID int) ([]Post, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT permalink, score, title, name, created_utc,

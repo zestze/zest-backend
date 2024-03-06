@@ -22,9 +22,9 @@ func NewStore(db *sql.DB) Store {
 }
 
 func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Persist")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
 		`INSERT INTO metacritic_posts 
@@ -68,9 +68,9 @@ func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) 
 }
 
 func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	lowerBound, upperBound := opts.RangeAsDate()
 	rows, err := s.db.QueryContext(ctx,

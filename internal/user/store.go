@@ -28,9 +28,9 @@ type User struct {
 
 // can also get user by ID!
 func (s Store) GetUser(ctx context.Context, username string) (User, error) {
-	logger := zlog.Logger(ctx)
 	ctx, span := ztrace.Start(ctx, "SQL user.Get")
 	defer span.End()
+	logger := zlog.Logger(ctx)
 
 	user := User{
 		Username: username,
@@ -48,9 +48,9 @@ func (s Store) GetUser(ctx context.Context, username string) (User, error) {
 }
 
 func (s Store) PersistUser(ctx context.Context, username, password string, salt int) (int64, error) {
-	logger := zlog.Logger(ctx).With(slog.String("username", username))
 	ctx, span := ztrace.Start(ctx, "SQL user.Persist")
 	defer span.End()
+	logger := zlog.Logger(ctx).With(slog.String("username", username))
 
 	var id int64
 	if err := s.db.QueryRowContext(ctx,
