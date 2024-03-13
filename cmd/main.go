@@ -116,7 +116,7 @@ func (r *ServerCmd) Run() error {
 		}
 		rService.Register(v1, auth)
 
-		sService, err := spotify.New(db)
+		sService, err := spotify.New(ctx, db)
 		if err != nil {
 			logger.Error("error setting up spotify service", "error", err)
 			return err

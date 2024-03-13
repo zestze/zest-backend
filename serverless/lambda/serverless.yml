@@ -1,0 +1,51 @@
+service: zest
+
+# aws provider and function docs are here:
+# https://www.serverless.com/framework/docs/providers/aws/guide/functions
+#
+# direct deployment is suggested here:
+# https://www.serverless.com/framework/docs/providers/aws/guide/deploying
+provider:
+  name: aws
+  deploymentMethod: direct
+  runtime: provided.al2
+  memorySize: 512 # optional, in MB, default is 1024
+  timeout: 10 # optional, in seconds, default is 6
+  iam:
+    role:
+      statements: # guessing this will give all SNS privileges
+        - Effect: Allow
+          Action: 'sns:*'
+          Resource: '*'
+# default iam role is supposed to have cloudwatch permissions already!
+
+package:
+  exclude:
+    - ./**
+  include:
+    - ./bootstrap
+
+# SNS example is coming from:
+# https://www.serverless.com/framework/docs/providers/aws/events/sns
+functions:
+  sms:
+    handler: bootstrap # according to aws docs, needs to be called `bootstrap` for `provided.al2`
+    description: Receives messages and publishes them to SMS manually
+    events:
+      - sns:
+          topicName: spotify-update
+          displayName: An update on when spotify data has changed
+
+plugins:
+  - serverless-dotenv-plugin
+
+useDotenv: true
+
+# docs for dotenv can be found here:
+# https://www.serverless.com/plugins/serverless-dotenv-plugin
+# can't submit AWS keys bc they are `reserved`
+custom:
+  dotenv:
+    exclude:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY

@@ -70,5 +70,5 @@ deploy: build
 
 
 serverless:
-	doctl serverless deploy serverless
+	doctl serverless deploy serverless/digitalocean
 	# can also test with doctl serverless functions invoke zest/refresh

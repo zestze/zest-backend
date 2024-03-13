@@ -12,20 +12,26 @@ import (
 )
 
 type Controller struct {
-	Client  Client
-	StoreV1 GeneralStore
-	StoreV2 GeneralStore
+	Client    Client
+	StoreV1   GeneralStore
+	StoreV2   GeneralStore
+	Publisher Publisher
 }
 
-func New(db *sql.DB) (Controller, error) {
+func New(ctx context.Context, db *sql.DB) (Controller, error) {
 	client, err := NewClient(http.DefaultTransport)
 	if err != nil {
 		return Controller{}, err
 	}
+	publisher, err := NewSNSPublisher(ctx)
+	if err != nil {
+		return Controller{}, err
+	}
 	return Controller{
-		Client:  client,
-		StoreV1: NewStoreV1(db),
-		StoreV2: NewStoreV2(db),
+		Client:    client,
+		StoreV1:   NewStoreV1(db),
+		StoreV2:   NewStoreV2(db),
+		Publisher: publisher,
 	}, nil
 }
 
@@ -71,10 +77,14 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 		return
 	}
 
+	msg := gin.H{
+		"num_persisted": 0,
+	}
 	if len(items) == 0 {
-		c.IndentedJSON(http.StatusOK, gin.H{
-			"num_refreshed": 0,
-		})
+		if err = svc.Publisher.Publish(c, msg); err != nil {
+			logger.Error("error publishing message", "error", err)
+		}
+		c.IndentedJSON(http.StatusOK, msg)
 		return
 	}
 
@@ -93,9 +103,11 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{
-		"num_refreshed": len(persisted),
-	})
+	msg["num_persisted"] = len(persisted)
+	if err = svc.Publisher.Publish(c, msg); err != nil {
+		logger.Error("error publishing message", "error", err)
+	}
+	c.IndentedJSON(http.StatusOK, msg)
 }
 
 func (svc Controller) addToken(c *gin.Context, userID int, logger *slog.Logger) {
@@ -220,4 +232,8 @@ type GeneralStore interface {
 	) ([]NameWithListens, error)
 	PersistToken(ctx context.Context, token AccessToken, userID int) error
 	GetToken(ctx context.Context, userID int) (AccessToken, error)
+}
+
+type Publisher interface {
+	Publish(ctx context.Context, message any) error
 }
