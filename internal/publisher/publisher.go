@@ -1,4 +1,4 @@
-package spotify
+package publisher
 
 import (
 	"context"
@@ -40,11 +40,11 @@ func (p SNSPublisher) Publish(ctx context.Context, message any) error {
 	return err
 }
 
-// NewSNSPublisher constructs an SNSPublisher
+// New constructs an SNSPublisher
 //
 // aws sdk go v2 recommends using shared credentials or config files ahead of
 // using env vars. See: https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/
-func NewSNSPublisher(ctx context.Context) (SNSPublisher, error) {
+func New(ctx context.Context) (SNSPublisher, error) {
 	cfg, err := config.LoadDefaultConfig(ctx) // uses `.aws/credentials` and `.aws/config`
 	if err != nil {
 		return SNSPublisher{}, err

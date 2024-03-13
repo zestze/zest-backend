@@ -3,6 +3,7 @@ package spotify
 import (
 	"context"
 	"database/sql"
+	"github.com/zestze/zest-backend/internal/publisher"
 	"log/slog"
 	"net/http"
 	"time"
@@ -23,7 +24,7 @@ func New(ctx context.Context, db *sql.DB) (Controller, error) {
 	if err != nil {
 		return Controller{}, err
 	}
-	publisher, err := NewSNSPublisher(ctx)
+	p, err := publisher.New(ctx)
 	if err != nil {
 		return Controller{}, err
 	}
@@ -31,7 +32,7 @@ func New(ctx context.Context, db *sql.DB) (Controller, error) {
 		Client:    client,
 		StoreV1:   NewStoreV1(db),
 		StoreV2:   NewStoreV2(db),
-		Publisher: publisher,
+		Publisher: p,
 	}, nil
 }
 
