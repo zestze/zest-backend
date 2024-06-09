@@ -121,7 +121,7 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 func (svc Controller) backfill(c *gin.Context, userID int, logger *slog.Logger) {
 	qStart, qEnd := c.Query("start"), c.Query("end")
 	if qStart == "" || qEnd == "" {
-		zgin.BadRequest("please provide start and end for backfill")
+		zgin.BadRequest(c, "please provide start and end for backfill")
 		return
 	}
 

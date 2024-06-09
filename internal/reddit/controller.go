@@ -130,6 +130,6 @@ func (svc Controller) backfill(c *gin.Context, userID int, logger *slog.Logger) 
 	}()
 
 	c.IndentedJSON(http.StatusAccepted, gin.H{
-		"message": "backfill successfully started"
+		"message": "backfill successfully started",
 	})
 }
