@@ -153,9 +153,13 @@ func (svc Controller) backfill(c *gin.Context, userID int, logger *slog.Logger) 
 
 	// finally, put rest of job as an async goroutine
 	go func() {
+		// TODO(zeke): need to grab context keys such as request id!
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
 		defer cancel()
 		for {
+			// TODO(zeke): might need to try a strategy where we request backwards.
+			// it looks like right now it's just giving me literally what has been recently played.
+			// when i want more history!
 			if start.After(end) {
 				logger.Info("ending loop due to hitting end")
 				return
