@@ -126,13 +126,18 @@ func (svc Controller) backfill(c *gin.Context, userID int, logger *slog.Logger) 
 	}
 
 	// parse as datetime!
-	loc, _ := time.LoadLocation("America/New_York")
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		logger.Error("somehow didn't load location", "error", err)
+		zgin.InternalError(c)
+		return
+	}
 	start, err := time.ParseInLocation(time.DateOnly, qStart, loc)
 	if err != nil {
 		zgin.BadRequest(c, "start must be provided as format "+time.DateOnly)
 		return
 	}
-	end, err := time.ParseInLocation(time.DateOnly, time.DateOnly, loc)
+	end, err := time.ParseInLocation(time.DateOnly, qEnd, loc)
 	if err != nil {
 		zgin.BadRequest(c, "end must be provided as format "+time.DateOnly)
 		return
