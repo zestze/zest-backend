@@ -24,3 +24,9 @@ func InternalError(c *gin.Context) {
 		"error": "internal error",
 	})
 }
+
+func BadRequest(c *gin.Context, message string) {
+	c.IndentedJSON(http.StatusBadRequest, gin.H{
+		"error": message,
+	})
+}

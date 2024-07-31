@@ -39,7 +39,7 @@ GFLAGS=-tags=jsoniter
 GVARS=GOEXPERIMENT=rangefunc
 GORUN=$(GVARS) go run $(GFLAGS)
 
-.PHONY: fmt run help test scrape dump
+.PHONY: fmt run help test scrape dump backfill
 
 fmt:
 	go mod tidy
@@ -60,6 +60,13 @@ scrape:
 
 dump:
 	$(GORUN) ./cmd dump
+
+backfill:
+	CREDS=--username=$ZEST_USERNAME --password=$ZEST_PASSWORD
+	#$(GORUN) ./cmd backfill --help
+	#$(GORUN) ./cmd backfill --resource=reddit $(CREDS)
+	$(GORUN) ./cmd backfill --resource=spotify $(CREDS) \
+		--start=2024-04-04 --end=2024-05-28
 
 ##################
 ## deploy commands

@@ -11,8 +11,9 @@ COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 # TODO(zeke): if we introduce pkg dir, need to copy it here
 
+# -tags timetzdata is for embedding tz info for LoadLocation call in binary
 RUN CGO_ENABLED=0 GOOS=linux GOEXPERIMENT=rangefunc go build \
-     -tags=jsoniter -v -o /zest-api ./cmd/
+     -tags=jsoniter -tags timetzdata -v -o /zest-api ./cmd/
 
 FROM scratch
 
