@@ -3,12 +3,14 @@ package spotify
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"log/slog"
+	"time"
+
 	"github.com/zestze/zest-backend/internal/zlog"
 	"github.com/zestze/zest-backend/internal/zql"
 	"github.com/zestze/zest-backend/internal/ztrace"
-	"log/slog"
-	"time"
 )
 
 type StoreV2 struct {
@@ -247,5 +249,10 @@ ON CONFLICT
 RETURNING track_id`,
 		userID, song.PlayedAt, song.Track.ID, contextBlob).
 		Scan(&trackID)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		// song is already persisted, so RETURNING will provide no rows due to ON CONFLICT
+		return song.Track.ID, nil
+	}
 	return trackID, err
 }

@@ -3,10 +3,12 @@ package spotify
 import (
 	"context"
 	"database/sql"
-	"github.com/zestze/zest-backend/internal/publisher"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/zestze/zest-backend/internal/publisher"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zestze/zest-backend/internal/zgin"
@@ -40,34 +42,38 @@ func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g := r.Group("/spotify")
 	g.Use(auth)
 	g.POST("/refresh", zgin.WithUser(svc.refresh))
+	g.POST("/backfill", zgin.WithUser(svc.backfill))
 	g.POST("/token", zgin.WithUser(svc.addToken))
 	g.GET("/songs", zgin.WithUser(svc.getSongs))
 	g.GET("/artists", zgin.WithUser(svc.getArtists))
 	g.GET("/artist/songs", zgin.WithUser(svc.getSongsForArtist))
 }
 
+func (svc Controller) fetchToken(ctx context.Context, userID int) (AccessToken, error) {
+	token, err := svc.StoreV2.GetToken(ctx, userID)
+	if err != nil {
+		return AccessToken{}, fmt.Errorf("error getting token %w", err)
+	}
+
+	if token.Expired() {
+		token, err = svc.Client.RefreshAccess(ctx, token)
+		if err != nil {
+			return AccessToken{}, fmt.Errorf("error refreshing token %w", err)
+		}
+
+		if err = svc.StoreV2.PersistToken(ctx, token, userID); err != nil {
+			return AccessToken{}, fmt.Errorf("error persisting token %w", err)
+		}
+	}
+	return token, nil
+}
+
 func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
-	token, err := svc.StoreV2.GetToken(c, userID)
+	token, err := svc.fetchToken(c, userID)
 	if err != nil {
 		logger.Error("error fetching token", "error", err)
 		zgin.InternalError(c)
 		return
-	}
-
-	logger.Info("successfully fetched token")
-	if token.Expired() {
-		token, err = svc.Client.RefreshAccess(c, token)
-		if err != nil {
-			logger.Error("error refreshing token", "error", err)
-			zgin.InternalError(c)
-			return
-		}
-
-		if err = svc.StoreV2.PersistToken(c, token, userID); err != nil {
-			logger.Error("error persisting token", "error", err)
-			zgin.InternalError(c)
-			return
-		}
 	}
 
 	after := time.Now().Add(-time.Hour).UTC()
@@ -109,6 +115,81 @@ func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
 		logger.Error("error publishing message", "error", err)
 	}
 	c.IndentedJSON(http.StatusOK, msg)
+}
+
+// TODO(zeke): generally backfill doesn't feel like a great reason to have a separate endpoint
+func (svc Controller) backfill(c *gin.Context, userID int, logger *slog.Logger) {
+	qStart, qEnd := c.Query("start"), c.Query("end")
+	if qStart == "" || qEnd == "" {
+		zgin.BadRequest(c, "please provide start and end for backfill")
+		return
+	}
+
+	// TODO(zeke): maybe put timezone into env var?
+	// parse as datetime!
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		logger.Error("somehow didn't load location", "error", err)
+		zgin.InternalError(c)
+		return
+	}
+	start, err := time.ParseInLocation(time.DateOnly, qStart, loc)
+	if err != nil {
+		zgin.BadRequest(c, "start must be provided as format "+time.DateOnly)
+		return
+	}
+	end, err := time.ParseInLocation(time.DateOnly, qEnd, loc)
+	if err != nil {
+		zgin.BadRequest(c, "end must be provided as format "+time.DateOnly)
+		return
+	}
+
+	// then fetch token
+	token, err := svc.fetchToken(c, userID)
+	if err != nil {
+		logger.Error("error fetching token", "error", err)
+		zgin.InternalError(c)
+		return
+	}
+
+	// finally, put rest of job as an async goroutine
+	go func() {
+		// TODO(zeke): need to grab context keys such as request id!
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
+		defer cancel()
+		for {
+			// TODO(zeke): might need to try a strategy where we request backwards.
+			// it looks like right now it's just giving me literally what has been recently played.
+			// when i want more history!
+			if start.After(end) {
+				logger.Info("ending loop due to hitting end")
+				return
+			}
+
+			items, err := svc.Client.GetRecentlyPlayed(ctx, token, start)
+			if err != nil {
+				logger.Error("error fetching songs", "error", err, "after", start)
+				return
+			}
+			if len(items) == 0 {
+				logger.Info("ending backfill due to lack of songs", "after", start)
+				return
+			}
+
+			persisted, err := svc.StoreV2.PersistRecentlyPlayed(ctx, items, userID)
+			if err != nil {
+				logger.Error("error persisting songs", "error", err)
+				return
+			}
+			logger.Info("successfully persisted songs", "num_persisted", len(persisted))
+
+			start = items[len(items)-1].PlayedAt
+		}
+	}()
+
+	c.IndentedJSON(http.StatusAccepted, gin.H{
+		"message": "backfill successfully started",
+	})
 }
 
 func (svc Controller) addToken(c *gin.Context, userID int, logger *slog.Logger) {

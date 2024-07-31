@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"errors"
-	sloggin "github.com/samber/slog-gin"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
+
+	sloggin "github.com/samber/slog-gin"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -32,9 +33,10 @@ func main() {
 }
 
 var cli struct {
-	Server ServerCmd `cmd:"" help:"run server"`
-	Scrape ScrapeCmd `cmd:"" help:"scrape the internet"`
-	Dump   DumpCmd   `cmd:"" help:"dump from sqlite to postgres"`
+	Server   ServerCmd   `cmd:"" help:"run server"`
+	Scrape   ScrapeCmd   `cmd:"" help:"scrape the internet"`
+	Dump     DumpCmd     `cmd:"" help:"dump from sqlite to postgres"`
+	Backfill BackfillCmd `cmd:"" help:"hit the server"`
 }
 
 type ServerCmd struct {
