@@ -22,6 +22,7 @@ func Postgres() (*sql.DB, error) {
 	return sql.Open("pgx", defaultConfig().String())
 }
 
+// TODO(zeke): deprecate and remove!
 func WithMigrations() (*sql.DB, error) {
 	db, err := Postgres()
 	if err != nil {

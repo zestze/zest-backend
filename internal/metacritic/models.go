@@ -9,6 +9,8 @@ import (
 
 type Medium string
 
+type Action string
+
 const (
 	TV Medium = "tv"
 	//Game  Medium = "game"
@@ -17,6 +19,7 @@ const (
 	PC     Medium = "pc"
 	Switch Medium = "switch"
 	Movie  Medium = "movie"
+	SAVED  Action = "saved"
 )
 
 var AvailableMediums = []Medium{
@@ -82,6 +85,7 @@ type ProductCard struct {
 
 type Post struct {
 	ProductCard
+	ID          int64     `json:"id"`
 	Medium      Medium    `json:"-"`
 	RequestedAt time.Time `json:"-"`
 }
@@ -92,4 +96,9 @@ ReleaseYear: %v
 Score:       %v`,
 		p.Title, p.ReleaseDate.Year(), p.Score)
 	return s
+}
+
+type ShortPost struct {
+	Title  string `json:"title"`
+	Medium string `json:"medium"`
 }

@@ -4,7 +4,7 @@
 DOCKER=sudo docker
 COMPOSE=$(DOCKER) compose
 
-.PHONY: build up up-debug up-monitoring clean down down-with-volumes
+.PHONY: build up dev up-monitoring clean down down-with-volumes
 
 build:
 	$(COMPOSE) build
@@ -12,8 +12,8 @@ build:
 up: build
 	$(COMPOSE) up -d
 
-up-debug: build
-	$(COMPOSE) --profile debug up -d
+dev: build
+	$(COMPOSE) --profile dev up -d
 
 up-monitoring: build
 	$(COMPOSE) --profile monitoring up -d
@@ -22,7 +22,7 @@ clean:
 	$(DOCKER) system prune -a
 
 down:
-	$(COMPOSE) --profile monitoring --profile debug down
+	$(COMPOSE) --profile monitoring --profile dev down --remove-orphans
 
 down-with-volumes:
 	$(COMPOSE) down -v

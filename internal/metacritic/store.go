@@ -3,6 +3,8 @@ package metacritic
 import (
 	"context"
 	"errors"
+
+	"github.com/zestze/zest-backend/internal/user"
 	"github.com/zestze/zest-backend/internal/zql"
 
 	"database/sql"
@@ -74,7 +76,7 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 
 	lowerBound, upperBound := opts.RangeAsDate()
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT title, href, score, description, released, created_at
+		`SELECT id, title, href, score, description, released, created_at
 		FROM metacritic_posts 
 		WHERE medium = $1 and $2 <= released and released <= $3
 		ORDER BY released DESC`,
@@ -88,7 +90,7 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	posts := make([]Post, 0)
 	for rows.Next() {
 		var post Post
-		if err := rows.Scan(&post.Title, &post.Href, &post.Score, &post.Description,
+		if err := rows.Scan(&post.ID, &post.Title, &post.Href, &post.Score, &post.Description,
 			&post.ReleaseDate, &post.RequestedAt); err != nil {
 			return nil, err
 		}
@@ -101,6 +103,70 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	}
 
 	return posts, nil
+}
+
+func (s Store) SavePostsForUser(ctx context.Context, ids []int64, userID user.ID, action Action) error {
+	ctx, span := ztrace.Start(ctx, "SQL metacritic.Persist")
+	defer span.End()
+	logger := zlog.Logger(ctx)
+
+	stmt, err := s.db.PrepareContext(ctx,
+		`INSERT INTO saved_metacritic_posts
+	(user_id, post_id, action)
+	VALUES
+	($1, $2, $3)
+	ON CONFLICT DO NOTHING`)
+	if err != nil {
+		logger.Error("error preparing statement", "error", err)
+		return err
+	}
+	defer stmt.Close()
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		logger.Error("error beginning transaction", "error", err)
+		return err
+	}
+
+	for _, id := range ids {
+		_, err := tx.Stmt(stmt).
+			ExecContext(ctx, userID, id)
+		if err != nil {
+			logger.Error("error exec", "error", err)
+			return zql.Rollback(tx, err)
+		}
+	}
+	return tx.Commit()
+}
+
+func (s Store) GetSavedPostsForUser(ctx context.Context, userID user.ID) ([]int64, error) {
+	ctx, span := ztrace.Start(ctx, "SQL metacritic.Get")
+	defer span.End()
+	logger := zlog.Logger(ctx)
+
+	rows, err := s.db.QueryContext(ctx,
+		// TODO(zeke): likely want to fetch more than IDs!
+		`SELECT post_id 
+	FROM saved_metacritic_posts
+	WHERE user_id = $1`,
+		userID)
+	if err != nil {
+		logger.Error("error querying for rows", "error", err)
+		return nil, err
+	}
+	var ids []int64
+	for rows.Next() {
+		var i int64
+		if err := rows.Scan(&i); err != nil {
+			return nil, err
+		}
+		ids = append(ids, i)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return ids, nil
 }
 
 // Reset is primarily for running Sqlite3 tests

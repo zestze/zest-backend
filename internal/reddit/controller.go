@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/zestze/zest-backend/internal/user"
 	"github.com/zestze/zest-backend/internal/zgin"
 )
 
@@ -39,7 +40,7 @@ func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g.POST("/refresh", zgin.WithUser(svc.refresh))
 }
 
-func (svc Controller) getPosts(c *gin.Context, userID int, logger *slog.Logger) {
+func (svc Controller) getPosts(c *gin.Context, userID user.ID, logger *slog.Logger) {
 	var (
 		savedPosts []Post
 		err        error
@@ -61,7 +62,7 @@ func (svc Controller) getPosts(c *gin.Context, userID int, logger *slog.Logger) 
 	})
 }
 
-func (svc Controller) getSubreddits(c *gin.Context, userID int, logger *slog.Logger) {
+func (svc Controller) getSubreddits(c *gin.Context, userID user.ID, logger *slog.Logger) {
 	subreddits, err := svc.Store.GetSubreddits(c, userID)
 	if err != nil {
 		logger.Error("error loading subreddits", "error", err)
@@ -74,7 +75,7 @@ func (svc Controller) getSubreddits(c *gin.Context, userID int, logger *slog.Log
 	})
 }
 
-func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
+func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logger) {
 	savedPosts, err := svc.Client.Fetch(c, false)
 	if err != nil {
 		logger.Error("error fetching posts", "error", err)

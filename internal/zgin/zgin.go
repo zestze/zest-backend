@@ -9,11 +9,13 @@ import (
 	"github.com/zestze/zest-backend/internal/zlog"
 )
 
-func WithUser(f func(*gin.Context, int, *slog.Logger)) gin.HandlerFunc {
+type handler func(*gin.Context, user.ID, *slog.Logger)
+
+func WithUser(f handler) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID := c.GetInt(user.UserIdKey)
+		id := c.GetInt(user.UserIdKey)
 		logger := zlog.Logger(c)
-		f(c, userID, logger)
+		f(c, user.ID(id), logger)
 	}
 }
 

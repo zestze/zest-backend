@@ -2,9 +2,10 @@ package publisher
 
 import (
 	"context"
+	"testing"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 // integration test! expects actual credentials
@@ -13,9 +14,8 @@ func TestSNSPublisher_Publish(t *testing.T) {
 		t.Skip("skipping due to running in short mode")
 	}
 
-	t.Setenv(TopicArnEnv, "arn:aws:sns:us-east-1:862873347672:spotify-update")
 	ctx := context.Background()
-	publisher, err := New(ctx)
+	publisher, err := New(ctx, "arn:aws:sns:us-east-1:862873347672:spotify-update")
 	assert.NoError(t, err)
 
 	err = publisher.Publish(ctx, gin.H{
