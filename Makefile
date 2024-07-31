@@ -1,7 +1,11 @@
 ##################
 ## docker commands
 ##################
-DOCKER=sudo docker
+DOCKER := docker
+ifeq ($(shell uname -s),Linux)
+	DOCKER := sudo docker
+endif
+
 COMPOSE=$(DOCKER) compose
 
 .PHONY: build up dev up-monitoring clean down down-with-volumes
