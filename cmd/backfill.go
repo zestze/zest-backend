@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"slices"
@@ -27,16 +27,16 @@ type BackfillCmd struct {
 
 func (r *BackfillCmd) Run() error {
 	ctx := context.Background()
-	logger := log.Default()
+	logger := slog.Default()
 
 	if !slices.Contains([]string{"reddit", "metacritic", "spotify"}, r.Resource) {
-		logger.Fatal("invalid event type: ", r.Resource)
+		return fmt.Errorf("invalid event type: %v", r.Resource)
 	}
 
 	// login first!
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		logger.Fatal("error making cookie jar: ", err)
+		return fmt.Errorf("error making cookie jar: %v", err)
 	}
 
 	var bs bytes.Buffer
@@ -47,14 +47,14 @@ func (r *BackfillCmd) Run() error {
 		Username: r.Username,
 		Password: r.Password,
 	}); err != nil {
-		logger.Fatal("error encoding credentials: ", err)
+		return fmt.Errorf("error encoding credentials: %v", err)
 	}
 
-	logger.Print("logging into server")
+	logger.Info("logging into server")
 	uri := "https://api.zekereyna.dev/login"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, &bs)
 	if err != nil {
-		logger.Fatal("error making login request: ", err)
+		return fmt.Errorf("error making login request: %v", err)
 	}
 
 	client := http.Client{
@@ -64,33 +64,33 @@ func (r *BackfillCmd) Run() error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		logger.Fatal("error doing login request: ", err)
+		return fmt.Errorf("error doing login request: %v", err)
 	}
 	resp.Body.Close() // nothing to handle but still should close
 	if resp.StatusCode != http.StatusOK {
-		logger.Fatal("error code from login request, status code:", resp.StatusCode)
+		return fmt.Errorf("error code from login request, status code: %v", resp.StatusCode)
 	}
 
 	uri = "https://api.zekereyna.dev/v1/" + r.Resource + "/backfill"
 	if r.Resource == "spotify" {
 		uri += fmt.Sprintf("?start=%v&end=%v", r.Start, r.End)
 	}
-	logger.Print("refreshing server, uri: ", uri)
+	logger.Info("refreshing server, uri: " + uri)
 	req, err = http.NewRequestWithContext(ctx, http.MethodPost, uri, nil)
 	if err != nil {
-		logger.Fatal("error making request: ", err)
+		return fmt.Errorf("error making request: %v", err)
 	}
 
 	resp, err = client.Do(req)
 	if err != nil {
-		logger.Fatal("error doing request, err: ", err)
+		return fmt.Errorf("error doing request, err: %v", err)
 	}
 	resp.Body.Close() // nothing to handle but still should close
 	if resp.StatusCode >= 400 {
-		logger.Fatal("error doing request, status code: ", resp.StatusCode)
+		return fmt.Errorf("error doing request, status code: %v", resp.StatusCode)
 	}
 
-	logger.Print("successfully refreshed server")
+	logger.Info("successfully refreshed server")
 
 	return nil
 }

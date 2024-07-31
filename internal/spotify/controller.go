@@ -125,6 +125,7 @@ func (svc Controller) backfill(c *gin.Context, userID int, logger *slog.Logger) 
 		return
 	}
 
+	// TODO(zeke): maybe put timezone into env var?
 	// parse as datetime!
 	loc, err := time.LoadLocation("America/New_York")
 	if err != nil {
