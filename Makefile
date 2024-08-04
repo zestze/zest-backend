@@ -57,11 +57,11 @@ test: fmt
 
 # TODO(zeke): use the running container, but add a new database?
 test-db: fmt
-	atlas schema clean -u "postgres://zeke:reyna@localhost:5432/integration?sslmode=disable" --auto-approve
-	atlas schema apply -u "postgres://zeke:reyna@localhost:5432/integration?sslmode=disable" --to file://schema.sql \
-		--auto-approve \
-		--dev-url "postgres://atlas:pass@localhost:5444/postgres?sslmode=disable"
 	go test -short ./internal/metacritic
+	#atlas schema clean -u "postgres://zeke:reyna@localhost:5432/integration?sslmode=disable" --auto-approve
+	#atlas schema apply -u "postgres://zeke:reyna@localhost:5432/integration?sslmode=disable" --to file://schema.sql \
+	#	--auto-approve \
+	#	--dev-url "postgres://atlas:pass@localhost:5444/postgres?sslmode=disable"
 #	# spin up postgres db
 #	docker run --name postgres-integration -e POSTGRES_USER=zeke -e POSTGRES_PASSWORD=reyna -e POSTGRES_DB=integration
 
