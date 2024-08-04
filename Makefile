@@ -1,35 +1,41 @@
 ##################
 ## docker commands
 ##################
-#DOCKER=sudo docker
-DOCKER=docker
+DOCKER := docker
 ifeq ($(shell uname -s),Linux)
 	DOCKER := sudo docker
 endif
+
 COMPOSE=$(DOCKER) compose
 
-.PHONY: build up up-debug up-monitoring clean down down-with-volumes
+.PHONY: build up server dev monitor all clean down down-with-volumes
 
 build:
-	$(COMPOSE) build
+	$(COMPOSE) --profile server build
 
-up: build
+up:
 	$(COMPOSE) up -d
 
-up-debug: build
-	$(COMPOSE) --profile debug up -d
+server: build
+	$(COMPOSE) --profile server up -d
 
-up-monitoring: build
-	$(COMPOSE) --profile monitoring up -d
+dev:
+	$(COMPOSE) --profile dev up -d
+
+monitor: build
+	$(COMPOSE) --profile monitoring --profile server up -d
+
+all: build
+	$(COMPOSE) --profile "*" up -d
 
 clean:
 	$(DOCKER) system prune -a
 
 down:
-	$(COMPOSE) --profile monitoring --profile debug down
+	$(COMPOSE) --profile "*" down --remove-orphans
 
 down-with-volumes:
-	$(COMPOSE) down -v
+	$(COMPOSE) --profile "*" down -v --remove-orphans
 
 ##################
 ## go tool commands
@@ -54,6 +60,16 @@ help: fmt
 
 test: fmt
 	go test -short ./...
+
+# TODO(zeke): use the running container, but add a new database?
+test-db: fmt
+	go test -short -tags=integration ./internal/metacritic
+	#atlas schema clean -u "postgres://zeke:reyna@localhost:5432/integration?sslmode=disable" --auto-approve
+	#atlas schema apply -u "postgres://zeke:reyna@localhost:5432/integration?sslmode=disable" --to file://schema.sql \
+	#	--auto-approve \
+	#	--dev-url "postgres://atlas:pass@localhost:5444/postgres?sslmode=disable"
+#	# spin up postgres db
+#	docker run --name postgres-integration -e POSTGRES_USER=zeke -e POSTGRES_PASSWORD=reyna -e POSTGRES_DB=integration
 
 scrape:
 	$(GORUN) ./cmd scrape reddit

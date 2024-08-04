@@ -3,6 +3,7 @@ include:
   - compose/aux.yaml
 services:
   zest-api:
+    profiles: [ "server" ]
     container_name: zest-api
     build: .
     ports:
@@ -13,10 +14,16 @@ services:
       - type: bind
         source: ./secrets/
         target: /secrets/
+      - type: bind
+        source: .env
+        target: /.env
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
   redis:
+    profiles: [ "server" ]
     image: redis:alpine
     container_name: redis
     restart: unless-stopped
@@ -32,8 +39,29 @@ services:
       - POSTGRES_USER=zeke
       - POSTGRES_PASSWORD=reyna
       - POSTGRES_DB=zest
+      - PGDATA=/var/lib/postgresql/data/_data
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U zeke" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  atlas:
+    profiles: [ "dev" ]
+    image: postgres
+    container_name: atlasdevdb
+    ports:
+      - 5444:5432
+    environment:
+      - POSTGRES_USER=atlas
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=postgres
 
 volumes:
   pgdata:
+    driver: local # TODO(zeke): doing local for now, need a better way of pulling data from deployed instance
+    driver_opts:
+      type: none
+      o: bind
+      device: ./pgdata/workspace_pgdata

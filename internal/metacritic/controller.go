@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/zestze/zest-backend/internal/user"
 	"github.com/zestze/zest-backend/internal/zgin"
 	"github.com/zestze/zest-backend/internal/zlog"
 	"golang.org/x/sync/errgroup"
@@ -32,6 +33,33 @@ func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g.Use(auth)
 	g.GET("/posts", svc.getPostsForAPI)
 	g.POST("/refresh", svc.refresh)
+	g.PATCH("/posts", zgin.WithUser(svc.savePosts))
+}
+
+type SavePostsInput struct {
+	IDs    []int64 `json:"ids"`
+	Action Action  `json:"action"`
+}
+
+func (svc Controller) savePosts(c *gin.Context, userID user.ID, logger *slog.Logger) {
+	input := SavePostsInput{
+		Action: SAVED, // TODO(zeke): for now, default to "saved"
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		logger.Error("error binding body", "error", err)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{
+			"error": "please provide posts correctly",
+		})
+		return
+	}
+
+	if err := svc.Store.SavePostsForUser(c, input.IDs, userID, input.Action); err != nil {
+		logger.Error("error saving posts", "error", err)
+		zgin.InternalError(c)
+		return
+	}
+
+	c.Status(http.StatusCreated)
 }
 
 func (svc Controller) getPostsForAPI(c *gin.Context) {

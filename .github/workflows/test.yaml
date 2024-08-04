@@ -14,3 +14,30 @@ jobs:
           go-version: '1.22.x'
       - name: Run Tests
         run: make test
+  test-db:
+    needs: test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: zeke
+          POSTGRES_PASSWORD: reyna
+          POSTGRES_DB: zest
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+      - name: Run Tests
+        run: make test-db

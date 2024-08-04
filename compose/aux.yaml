@@ -15,7 +15,7 @@ services:
     depends_on:
       - zest-api
   adminer:
-    profiles: [ "debug" ]
+    profiles: [ "dev" ]
     image: adminer
     restart: unless-stopped
     ports:

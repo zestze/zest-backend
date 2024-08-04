@@ -18,6 +18,10 @@ var (
 	UserIdKey    = "zest.user_id"
 )
 
+// TODO(zeke): mostly for external use right now
+// TODO(zeke): should this be type alias vs type def?
+type ID = int
+
 type item struct {
 	UserID   int    `json:"user_id"`
 	Username string `json:"username"`

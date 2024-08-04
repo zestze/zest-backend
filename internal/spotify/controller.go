@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/zestze/zest-backend/internal/publisher"
+	"github.com/zestze/zest-backend/internal/user"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zestze/zest-backend/internal/zgin"
@@ -21,12 +21,8 @@ type Controller struct {
 	Publisher Publisher
 }
 
-func New(ctx context.Context, db *sql.DB) (Controller, error) {
+func New(ctx context.Context, db *sql.DB, publisher Publisher) (Controller, error) {
 	client, err := NewClient(http.DefaultTransport)
-	if err != nil {
-		return Controller{}, err
-	}
-	p, err := publisher.New(ctx)
 	if err != nil {
 		return Controller{}, err
 	}
@@ -34,7 +30,7 @@ func New(ctx context.Context, db *sql.DB) (Controller, error) {
 		Client:    client,
 		StoreV1:   NewStoreV1(db),
 		StoreV2:   NewStoreV2(db),
-		Publisher: p,
+		Publisher: publisher,
 	}, nil
 }
 
@@ -68,7 +64,7 @@ func (svc Controller) fetchToken(ctx context.Context, userID int) (AccessToken, 
 	return token, nil
 }
 
-func (svc Controller) refresh(c *gin.Context, userID int, logger *slog.Logger) {
+func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logger) {
 	token, err := svc.fetchToken(c, userID)
 	if err != nil {
 		logger.Error("error fetching token", "error", err)
@@ -192,7 +188,7 @@ func (svc Controller) backfill(c *gin.Context, userID int, logger *slog.Logger) 
 	})
 }
 
-func (svc Controller) addToken(c *gin.Context, userID int, logger *slog.Logger) {
+func (svc Controller) addToken(c *gin.Context, userID user.ID, logger *slog.Logger) {
 	var token AccessToken
 	if err := c.ShouldBindJSON(&token); err != nil {
 		logger.Error("error binding body for token", "error", err)
@@ -213,7 +209,7 @@ func (svc Controller) addToken(c *gin.Context, userID int, logger *slog.Logger) 
 	})
 }
 
-func (svc Controller) getSongs(c *gin.Context, userID int, logger *slog.Logger) {
+func (svc Controller) getSongs(c *gin.Context, userID user.ID, logger *slog.Logger) {
 	opts := defaultOptions()
 	if err := c.BindQuery(&opts); err != nil {
 		logger.Error("error binding query for getSongs", "error", err)
@@ -235,7 +231,7 @@ func (svc Controller) getSongs(c *gin.Context, userID int, logger *slog.Logger) 
 	})
 }
 
-func (svc Controller) getArtists(c *gin.Context, userID int, logger *slog.Logger) {
+func (svc Controller) getArtists(c *gin.Context, userID user.ID, logger *slog.Logger) {
 	opts := defaultOptions()
 	if err := c.BindQuery(&opts); err != nil {
 		logger.Error("error binding query for getArtists", "error", err)
@@ -257,7 +253,7 @@ func (svc Controller) getArtists(c *gin.Context, userID int, logger *slog.Logger
 	})
 }
 
-func (svc Controller) getSongsForArtist(c *gin.Context, userID int, logger *slog.Logger) {
+func (svc Controller) getSongsForArtist(c *gin.Context, userID user.ID, logger *slog.Logger) {
 	opts := struct {
 		Options
 		Artist string `form:"artist"`

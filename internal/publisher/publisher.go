@@ -3,11 +3,11 @@ package publisher
 import (
 	"context"
 	"errors"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	jsoniter "github.com/json-iterator/go"
-	"os"
 )
 
 // TODO(zeke): env vars are getting spread out! need to clean up somehow.
@@ -44,14 +44,10 @@ func (p SNSPublisher) Publish(ctx context.Context, message any) error {
 //
 // aws sdk go v2 recommends using shared credentials or config files ahead of
 // using env vars. See: https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/
-func New(ctx context.Context) (SNSPublisher, error) {
+func New(ctx context.Context, topicArn string) (SNSPublisher, error) {
 	cfg, err := config.LoadDefaultConfig(ctx) // uses `.aws/credentials` and `.aws/config`
 	if err != nil {
 		return SNSPublisher{}, err
-	}
-	topicArn, ok := os.LookupEnv(TopicArnEnv)
-	if !ok {
-		return SNSPublisher{}, ErrTopicArnMissing
 	}
 	return SNSPublisher{
 		snsClient: sns.NewFromConfig(cfg),

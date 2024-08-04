@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,12 +11,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/joho/godotenv"
 	sloggin "github.com/samber/slog-gin"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	cors "github.com/rs/cors/wrapper/gin"
 	"github.com/zestze/zest-backend/internal/metacritic"
+	"github.com/zestze/zest-backend/internal/publisher"
 	"github.com/zestze/zest-backend/internal/reddit"
 	"github.com/zestze/zest-backend/internal/spotify"
 	"github.com/zestze/zest-backend/internal/user"
@@ -28,6 +31,14 @@ import (
 )
 
 func main() {
+	err := godotenv.Load()
+	if errors.Is(err, fs.ErrNotExist) {
+		slog.Info("dotenv not found, ignoring and continuing")
+	} else if err != nil {
+		slog.Error("error loading dotenv file", "error", err)
+		return
+	}
+
 	ctx := kong.Parse(&cli)
 	ctx.FatalIfErrorf(ctx.Run())
 }
@@ -45,6 +56,7 @@ type ServerCmd struct {
 	ServiceName   string        `short:"n" env:"SERVICE_NAME" default:"zest"`
 	SessionLength time.Duration `env:"SESSION_LENGTH" default:"15m" help:"maximum length of user session"`
 	EnableTracing bool          `short:"t" env:"ENABLE_TRACING" help:"set to start tracing"`
+	SNSTopicARN   string        `env:"SNS_TOPIC_ARN" default:"" help:"AWS SNS Topic ARN, leave blank to use fake publisher"`
 }
 
 func (r *ServerCmd) Group() slog.Attr {
@@ -92,7 +104,7 @@ func (r *ServerCmd) Run() error {
 	)
 
 	logger.Info("setting up db connection")
-	db, err := zql.WithMigrations()
+	db, err := zql.Postgres()
 	if err != nil {
 		logger.Error("error initializing db", "error", err)
 		return err
@@ -118,7 +130,12 @@ func (r *ServerCmd) Run() error {
 		}
 		rService.Register(v1, auth)
 
-		sService, err := spotify.New(ctx, db)
+		publisher, err := r.publisher(ctx)
+		if err != nil {
+			logger.Error("error making publisher", "error", err)
+			return err
+		}
+		sService, err := spotify.New(ctx, db, publisher)
 		if err != nil {
 			logger.Error("error setting up spotify service", "error", err)
 			return err
@@ -165,6 +182,15 @@ func (r *ServerCmd) Run() error {
 	return nil
 }
 
+func (r *ServerCmd) publisher(ctx context.Context) (spotify.Publisher, error) {
+	if r.SNSTopicARN != "" {
+		return publisher.New(ctx, r.SNSTopicARN)
+	} else {
+		return fakePublisher{}, nil
+	}
+
+}
+
 type DumpCmd struct {
 	BaseDir        string `help:"base directory for sqlite files" default:"./sqlite-temp"`
 	RedditFile     string `help:"name of reddit sqlite file" default:"reddit.db"`
@@ -193,5 +219,11 @@ func (r *ScrapeCmd) Run() error {
 			scrapeMetacritic(m, 1995, 5)
 		}
 	}
+	return nil
+}
+
+type fakePublisher struct{}
+
+func (fakePublisher) Publish(ctx context.Context, message any) error {
 	return nil
 }

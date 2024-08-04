@@ -1,14 +1,13 @@
 package zql
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 
-	"github.com/golang-migrate/migrate/v4"
-	pgx5 "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
@@ -19,35 +18,10 @@ func Sqlite3(dbName string) (*sql.DB, error) {
 }
 
 func Postgres() (*sql.DB, error) {
-	return sql.Open("pgx", defaultConfig().String())
+	return PostgresWithConfig(defaultConfig())
 }
 
-func WithMigrations() (*sql.DB, error) {
-	db, err := Postgres()
-	if err != nil {
-		return nil, err
-	}
-
-	driver, err := pgx5.WithInstance(db, &pgx5.Config{})
-	if err != nil {
-		return nil, err
-	}
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
-		"pgx5", driver)
-	if err != nil {
-		return nil, err
-	}
-
-	slog.Info("running migrations")
-	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return nil, err
-	}
-	slog.Info("migrations successful")
-	return db, nil
-}
-
-func PostgresWithConfig(opts ...func(cfg *postgresConfig)) (*sql.DB, error) {
+func PostgresWithOptions(opts ...func(cfg *PostgresConfig)) (*sql.DB, error) {
 	cfg := defaultConfig()
 
 	for _, o := range opts {
@@ -57,13 +31,23 @@ func PostgresWithConfig(opts ...func(cfg *postgresConfig)) (*sql.DB, error) {
 	return sql.Open("pgx", cfg.String())
 }
 
-func WithHost(host string) func(cfg *postgresConfig) {
-	return func(cfg *postgresConfig) {
+func WithHost(host string) func(cfg *PostgresConfig) {
+	return func(cfg *PostgresConfig) {
 		cfg.host = host
 	}
 }
 
-type postgresConfig struct {
+func WithDatabase(dbname string) func(cfg *PostgresConfig) {
+	return func(cfg *PostgresConfig) {
+		cfg.dbname = dbname
+	}
+}
+
+func PostgresWithConfig(cfg PostgresConfig) (*sql.DB, error) {
+	return sql.Open("pgx", cfg.String())
+}
+
+type PostgresConfig struct {
 	host     string
 	port     int
 	dbname   string
@@ -72,14 +56,14 @@ type postgresConfig struct {
 }
 
 // String returns config as DSN
-func (cfg postgresConfig) String() string {
+func (cfg PostgresConfig) String() string {
 	return fmt.Sprintf(
 		`user=%v password=%v host=%v port=%v database=%v sslmode=disable`,
 		cfg.username, cfg.password, cfg.host, cfg.port, cfg.dbname)
 }
 
-func defaultConfig() postgresConfig {
-	return postgresConfig{
+func defaultConfig() PostgresConfig {
+	return PostgresConfig{
 		host:     "postgres",
 		port:     5432,
 		dbname:   "zest",
@@ -91,4 +75,64 @@ func defaultConfig() postgresConfig {
 // Rollback just rolls back the current transaction and joins the error to the original err if applicable
 func Rollback(tx *sql.Tx, originalErr error) error {
 	return errors.Join(originalErr, tx.Rollback())
+}
+
+// ForTesting prepares an environment for unit tests.
+//
+// dbName is the name of the database to create for this test.
+// schemaPath is the path relative to the testing working directory to the schema.sql file to use for migrating
+func ForTesting(
+	ctx context.Context, dbName, hostname, schemaPath string, dropDB bool,
+) (db *sql.DB, toDefer func(), err error) {
+	// TODO(zeke): pass `t` to func and mark as helper?
+	parentDB, err := PostgresWithOptions(WithHost(hostname))
+	if err != nil {
+		return
+	}
+	defer parentDB.Close()
+
+	_, err = parentDB.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %v;", dbName))
+	if err != nil {
+		return
+	}
+
+	db, err = PostgresWithOptions(WithHost(hostname), WithDatabase(dbName))
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err != nil {
+			db.Close()
+		}
+	}()
+
+	schema, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return
+	}
+
+	_, err = db.ExecContext(ctx, string(schema))
+	if err != nil {
+		return
+	}
+
+	toDefer = func() {
+		if !dropDB {
+			return
+		}
+
+		// postgres docs say:
+		// 	You cannot be connected to the database you are about to remove.
+		//	Instead, connect to template1 or any other database and run this command again.
+		tempDB, err := PostgresWithOptions(WithHost(hostname), WithDatabase("template1"))
+		if err != nil {
+			slog.Error("error dropping test db, when opening new connection: %v")
+		}
+		defer tempDB.Close()
+		_, err = tempDB.ExecContext(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %v;", dbName))
+		if err != nil {
+			slog.Error("error dropping test db", "error", err)
+		}
+	}
+	return
 }
