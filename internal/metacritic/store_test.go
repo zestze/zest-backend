@@ -2,7 +2,6 @@ package metacritic
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,21 +12,17 @@ import (
 
 func TestDB(t *testing.T) {
 	assert := assert.New(t)
-	f, err := os.CreateTemp("", "metacritic.*.db")
-	assert.NoError(err)
-	defer os.Remove(f.Name())
 
-	db, err := zql.Sqlite3(f.Name())
+	// TODO(zeke): create postgres tables!
+	db, err := zql.PostgresWithOptions(zql.WithDatabase("integration"), zql.WithHost("localhost"))
 	assert.NoError(err)
 	defer db.Close()
+
+	// TODO(zeke): run SQL in schema to migrate! or have that done beforehand...
+
 	store := NewStore(db)
-
 	ctx := context.Background()
-	// TODO(zeke): need a better way of applying migrations in unit tests.
-	assert.NoError(store.Reset(ctx))
-
 	client := NewClient(httptest.MockRTWithFile(t, "test_index.html"))
-
 	options := Options{
 		Medium:  TV,
 		MinYear: 2021,
@@ -40,6 +35,7 @@ func TestDB(t *testing.T) {
 	ids, err := store.PersistPosts(ctx, posts)
 	assert.NoError(err)
 	assert.Len(ids, len(posts))
+	// TODO(zeke): why isn't this working?
 
 	persistedPosts, err := store.GetPosts(ctx, options)
 	assert.NoError(err)
@@ -52,4 +48,11 @@ func TestDB(t *testing.T) {
 	assert.NoError(err)
 
 	// TODO(zeke): now test fetching saved posts for the user!
+	savedPosts, err := store.GetSavedPostsForUser(ctx, user.ID(userID))
+	assert.NoError(err)
+	assert.Len(savedPosts, 4)
+	for i, sp := range savedPosts {
+		assert.Equal(SAVED, sp.Action)
+		assert.Equal(posts[i].Title, sp.Title)
+	}
 }

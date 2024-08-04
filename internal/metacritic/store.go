@@ -130,7 +130,7 @@ func (s Store) SavePostsForUser(ctx context.Context, ids []int64, userID user.ID
 
 	for _, id := range ids {
 		_, err := tx.Stmt(stmt).
-			ExecContext(ctx, userID, id)
+			ExecContext(ctx, userID, id, action)
 		if err != nil {
 			logger.Error("error exec", "error", err)
 			return zql.Rollback(tx, err)
@@ -145,7 +145,7 @@ func (s Store) GetSavedPostsForUser(ctx context.Context, userID user.ID) ([]Post
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, title, href, score, description, released, created_at, medium, saved.action
+		`SELECT id, title, href, score, description, released, posts.created_at, medium, saved.action
 	FROM metacritic_posts AS posts
 	JOIN saved_metacritic_posts AS saved 
 		ON saved.post_id = posts.id

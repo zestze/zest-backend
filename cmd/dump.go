@@ -15,7 +15,7 @@ import (
 
 func TransferSpotifyToken(ctx context.Context) {
 	// for running on baremetal
-	targetDB, err := zql.PostgresWithConfig(zql.WithHost("localhost"))
+	targetDB, err := zql.PostgresWithOptions(zql.WithHost("localhost"))
 	if err != nil {
 		panic(err)
 	}

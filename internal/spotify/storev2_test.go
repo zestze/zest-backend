@@ -2,9 +2,10 @@ package spotify
 
 import (
 	"context"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/zestze/zest-backend/internal/zql"
-	"testing"
 )
 
 // TestTransferSpotifySongs is a temp function for moving the data from one store to another!
@@ -13,7 +14,7 @@ func TestTransferSpotifySongs(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 
-	db, err := zql.PostgresWithConfig(zql.WithHost("localhost"))
+	db, err := zql.PostgresWithOptions(zql.WithHost("localhost"))
 	assert.NoError(t, err)
 	defer db.Close()
 

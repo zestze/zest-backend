@@ -19,7 +19,7 @@ func Sqlite3(dbName string) (*sql.DB, error) {
 }
 
 func Postgres() (*sql.DB, error) {
-	return sql.Open("pgx", defaultConfig().String())
+	return PostgresWithConfig(defaultConfig())
 }
 
 // TODO(zeke): deprecate and remove!
@@ -48,7 +48,7 @@ func WithMigrations() (*sql.DB, error) {
 	return db, nil
 }
 
-func PostgresWithConfig(opts ...func(cfg *postgresConfig)) (*sql.DB, error) {
+func PostgresWithOptions(opts ...func(cfg *PostgresConfig)) (*sql.DB, error) {
 	cfg := defaultConfig()
 
 	for _, o := range opts {
@@ -58,13 +58,23 @@ func PostgresWithConfig(opts ...func(cfg *postgresConfig)) (*sql.DB, error) {
 	return sql.Open("pgx", cfg.String())
 }
 
-func WithHost(host string) func(cfg *postgresConfig) {
-	return func(cfg *postgresConfig) {
+func WithHost(host string) func(cfg *PostgresConfig) {
+	return func(cfg *PostgresConfig) {
 		cfg.host = host
 	}
 }
 
-type postgresConfig struct {
+func WithDatabase(dbname string) func(cfg *PostgresConfig) {
+	return func(cfg *PostgresConfig) {
+		cfg.dbname = dbname
+	}
+}
+
+func PostgresWithConfig(cfg PostgresConfig) (*sql.DB, error) {
+	return sql.Open("pgx", cfg.String())
+}
+
+type PostgresConfig struct {
 	host     string
 	port     int
 	dbname   string
@@ -73,14 +83,14 @@ type postgresConfig struct {
 }
 
 // String returns config as DSN
-func (cfg postgresConfig) String() string {
+func (cfg PostgresConfig) String() string {
 	return fmt.Sprintf(
 		`user=%v password=%v host=%v port=%v database=%v sslmode=disable`,
 		cfg.username, cfg.password, cfg.host, cfg.port, cfg.dbname)
 }
 
-func defaultConfig() postgresConfig {
-	return postgresConfig{
+func defaultConfig() PostgresConfig {
+	return PostgresConfig{
 		host:     "postgres",
 		port:     5432,
 		dbname:   "zest",
