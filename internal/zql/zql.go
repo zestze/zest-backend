@@ -1,10 +1,12 @@
 package zql
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/golang-migrate/migrate/v4"
 	pgx5 "github.com/golang-migrate/migrate/v4/database/pgx/v5"
@@ -102,4 +104,49 @@ func defaultConfig() PostgresConfig {
 // Rollback just rolls back the current transaction and joins the error to the original err if applicable
 func Rollback(tx *sql.Tx, originalErr error) error {
 	return errors.Join(originalErr, tx.Rollback())
+}
+
+// ForTesting prepares an environment for unit tests.
+//
+// dbName is the name of the database to create for this test.
+// schemaPath is the path relative to the testing working directory to the schema.sql file to use for migrating
+func ForTesting(ctx context.Context, dbName, hostname, schemaPath string) (db *sql.DB, toDefer func(), err error) {
+	parentDB, err := PostgresWithOptions(WithHost(hostname))
+	if err != nil {
+		return
+	}
+	defer parentDB.Close()
+
+	_, err = parentDB.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %v;", dbName))
+	if err != nil {
+		return
+	}
+
+	db, err = PostgresWithOptions(WithHost(hostname), WithDatabase(dbName))
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err != nil {
+			db.Close()
+		}
+	}()
+
+	schema, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return
+	}
+
+	_, err = db.ExecContext(ctx, string(schema))
+	if err != nil {
+		return
+	}
+
+	toDefer = func() {
+		_, err := db.ExecContext(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %v;", dbName))
+		if err != nil {
+			slog.Error("error dropping test db", "error", err)
+		}
+	}
+	return
 }
