@@ -19,7 +19,8 @@ const (
 	PC     Medium = "pc"
 	Switch Medium = "switch"
 	Movie  Medium = "movie"
-	SAVED  Action = "saved"
+	// TODO(zeke): should this be all caps?
+	SAVED Action = "saved"
 )
 
 var AvailableMediums = []Medium{
@@ -96,6 +97,11 @@ ReleaseYear: %v
 Score:       %v`,
 		p.Title, p.ReleaseDate.Year(), p.Score)
 	return s
+}
+
+type PostWithAction struct {
+	Post
+	Action Action `json:"action"`
 }
 
 type ShortPost struct {

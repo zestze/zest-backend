@@ -139,34 +139,36 @@ func (s Store) SavePostsForUser(ctx context.Context, ids []int64, userID user.ID
 	return tx.Commit()
 }
 
-func (s Store) GetSavedPostsForUser(ctx context.Context, userID user.ID) ([]int64, error) {
+func (s Store) GetSavedPostsForUser(ctx context.Context, userID user.ID) ([]PostWithAction, error) {
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Get")
 	defer span.End()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
-		// TODO(zeke): likely want to fetch more than IDs!
-		`SELECT post_id 
-	FROM saved_metacritic_posts
-	WHERE user_id = $1`,
+		`SELECT id, title, href, score, description, released, created_at, medium, saved.action
+	FROM metacritic_posts AS posts
+	JOIN saved_metacritic_posts AS saved 
+		ON saved.post_id = posts.id
+	WHERE saved.user_id = $1`,
 		userID)
 	if err != nil {
 		logger.Error("error querying for rows", "error", err)
 		return nil, err
 	}
-	var ids []int64
+	var posts []PostWithAction
 	for rows.Next() {
-		var i int64
-		if err := rows.Scan(&i); err != nil {
+		var post PostWithAction
+		if err := rows.Scan(&post.ID, &post.Title, &post.Href,
+			&post.Score, &post.Description, &post.ReleaseDate,
+			&post.RequestedAt, &post.Medium, &post.Action); err != nil {
 			return nil, err
 		}
-		ids = append(ids, i)
+		posts = append(posts, post)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
-	return ids, nil
+	return posts, nil
 }
 
 // Reset is primarily for running Sqlite3 tests

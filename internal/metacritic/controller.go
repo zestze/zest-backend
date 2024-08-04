@@ -36,7 +36,6 @@ func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g.PATCH("/posts", zgin.WithUser(svc.savePosts))
 }
 
-// TODO(zeke): would prefer if this was ID!
 type SavePostsInput struct {
 	IDs    []int64 `json:"ids"`
 	Action Action  `json:"action"`
