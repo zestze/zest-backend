@@ -2,6 +2,7 @@ package ztrace
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -37,12 +38,12 @@ func New(ctx context.Context, opts Options) (Shutdowner, error) {
 	//exporter, err := stdout.New(stdout.WithPrettyPrint())
 	exporter, err := newOTLPExporter(ctx, opts.OTLPEndppoint)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error building exporter: %v", err)
 	}
 
 	tp, err := newTraceProvider(exporter, opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error building provider: %v", err)
 	}
 	// set `otel` global
 	otel.SetTracerProvider(tp)
@@ -50,7 +51,7 @@ func New(ctx context.Context, opts Options) (Shutdowner, error) {
 		propagation.Baggage{}))
 	// set my global
 	tracer = tp.Tracer(opts.ServiceName)
-	return tp, err
+	return tp, nil
 }
 
 func Start(ctx context.Context, name string) (context.Context, trace.Span) {
