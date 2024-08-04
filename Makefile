@@ -8,28 +8,34 @@ endif
 
 COMPOSE=$(DOCKER) compose
 
-.PHONY: build up dev up-monitoring clean down down-with-volumes
+.PHONY: build up server dev monitor all clean down down-with-volumes
 
 build:
-	$(COMPOSE) build
+	$(COMPOSE) --profile server build
 
-up: build
+up:
 	$(COMPOSE) up -d
 
-dev: build
+server: build
+	$(COMPOSE) --profile server up -d
+
+dev:
 	$(COMPOSE) --profile dev up -d
 
-up-monitoring: build
-	$(COMPOSE) --profile monitoring up -d
+monitor: build
+	$(COMPOSE) --profile monitoring --profile server up -d
+
+all: build
+	$(COMPOSE) --profile "*" up -d
 
 clean:
 	$(DOCKER) system prune -a
 
 down:
-	$(COMPOSE) --profile monitoring --profile dev down --remove-orphans
+	$(COMPOSE) --profile "*" down --remove-orphans
 
 down-with-volumes:
-	$(COMPOSE) down -v
+	$(COMPOSE) --profile "*" down -v --remove-orphans
 
 ##################
 ## go tool commands
@@ -57,7 +63,7 @@ test: fmt
 
 # TODO(zeke): use the running container, but add a new database?
 test-db: fmt
-	go test -short ./internal/metacritic
+	go test -short -tags=integration ./internal/metacritic
 	#atlas schema clean -u "postgres://zeke:reyna@localhost:5432/integration?sslmode=disable" --auto-approve
 	#atlas schema apply -u "postgres://zeke:reyna@localhost:5432/integration?sslmode=disable" --to file://schema.sql \
 	#	--auto-approve \

@@ -3,6 +3,7 @@ include:
   - compose/aux.yaml
 services:
   zest-api:
+    profiles: [ "server" ]
     container_name: zest-api
     build: .
     ports:
@@ -22,6 +23,7 @@ services:
       postgres:
         condition: service_healthy
   redis:
+    profiles: [ "server" ]
     image: redis:alpine
     container_name: redis
     restart: unless-stopped

@@ -17,10 +17,10 @@ func TestDB(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 
-	db, toDefer, err := zql.ForTesting(ctx, "test_metacritic", "localhost", "../../schema.sql")
+	db, toDefer, err := zql.ForTesting(ctx, "test_metacritic", "localhost", "../../schema.sql", true)
 	assert.NoError(err)
-	defer db.Close()
 	defer toDefer()
+	defer db.Close()
 
 	store := NewStore(db)
 	client := NewClient(httptest.MockRTWithFile(t, "test_index.html"))

@@ -110,7 +110,10 @@ func Rollback(tx *sql.Tx, originalErr error) error {
 //
 // dbName is the name of the database to create for this test.
 // schemaPath is the path relative to the testing working directory to the schema.sql file to use for migrating
-func ForTesting(ctx context.Context, dbName, hostname, schemaPath string) (db *sql.DB, toDefer func(), err error) {
+func ForTesting(
+	ctx context.Context, dbName, hostname, schemaPath string, dropDB bool,
+) (db *sql.DB, toDefer func(), err error) {
+	// TODO(zeke): pass `t` to func and mark as helper?
 	parentDB, err := PostgresWithOptions(WithHost(hostname))
 	if err != nil {
 		return
@@ -143,7 +146,19 @@ func ForTesting(ctx context.Context, dbName, hostname, schemaPath string) (db *s
 	}
 
 	toDefer = func() {
-		_, err := db.ExecContext(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %v;", dbName))
+		if !dropDB {
+			return
+		}
+
+		// postgres docs say:
+		// 	You cannot be connected to the database you are about to remove.
+		//	Instead, connect to template1 or any other database and run this command again.
+		tempDB, err := PostgresWithOptions(WithHost(hostname), WithDatabase("template1"))
+		if err != nil {
+			slog.Error("error dropping test db, when opening new connection: %v")
+		}
+		defer tempDB.Close()
+		_, err = tempDB.ExecContext(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %v;", dbName))
 		if err != nil {
 			slog.Error("error dropping test db", "error", err)
 		}
