@@ -41,7 +41,7 @@ func TransferSpotifyToken(ctx context.Context) {
 }
 
 func TransferSpotifySongs(ctx context.Context) {
-	db, err := zql.WithMigrations()
+	db, err := zql.Postgres()
 	if err != nil {
 		panic(err)
 	}
@@ -64,7 +64,7 @@ func TransferSpotifySongs(ctx context.Context) {
 
 func Transfer(ctx context.Context, directory, redditFile, metacriticFile, userFile string) {
 	// first load the users!
-	targetDB, err := zql.WithMigrations()
+	targetDB, err := zql.Postgres()
 	if err != nil {
 		panic(err)
 	}
