@@ -3,6 +3,7 @@ services:
     profiles: [ "prod" ]
     image: caddy:2.8.4 # latest version as of 10/4/24
     container_name: caddy
+    restart: unless-stopped
     ports:
     - 80:80
     - 443:443
