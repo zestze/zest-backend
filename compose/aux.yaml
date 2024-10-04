@@ -1,37 +1,23 @@
 services:
-  nginx:
+  caddy:
     profiles: [ "prod" ]
-    image: nginx:latest
-    container_name: nginx
+    image: caddy:2.8.4 # latest version as of 10/4/24
+    container_name: caddy
     ports:
-      - 443:443
-      - 80:80
-    restart: always
+    - 80:80
+    - 443:443
+    - 443:443/udp
     volumes:
-      - ../configs/nginx-conf:/etc/nginx/conf.d:ro
-      - certbot-etc:/etc/letsencrypt
-      - certbot-var:/var/lib/letsencrypt
-      - ../certbot/www/:/var/www/certbot:ro
-    depends_on:
-      - zest-api
+    - ../configs/Caddyfile:/etc/caddy/Caddyfile
+    - caddy_data:/data
+    - caddy_config:/config
   adminer:
     profiles: [ "dev" ]
     image: adminer
     restart: unless-stopped
     ports:
       - 8888:8080
-  certbot:
-    profiles: [ "certs" ]
-    image: certbot/certbot
-    container_name: certbot
-    volumes:
-      - certbot-etc:/etc/letsencrypt
-      - certbot-var:/var/lib/letsencrypt
-      - ../certbot/www/:/var/www/certbot:rw
-    depends_on:
-      - nginx
-    command: certonly --webroot --webroot-path=/var/www/certbot --email reynaezekiel@gmail.com --agree-tos --no-eff-email -d api.zekereyna.dev
 
 volumes:
-  certbot-etc:
-  certbot-var:
+  caddy_data:
+  caddy_config:
