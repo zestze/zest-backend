@@ -1,0 +1,5 @@
+api.zeke.reyna.dev {
+   reverse_proxy zest-api:8080
+   # want to come back and limit the endpoints that are passed along.
+   # caddy should automatically request an SSL cert for me!
+}
