@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-      working-directory: ./serverless/digitalocean/packages/zest/refresh
+        working-directory: ./serverless/digitalocean/packages/zest/refresh
     steps:
       - name: checkout
         uses: actions/checkout@v4
