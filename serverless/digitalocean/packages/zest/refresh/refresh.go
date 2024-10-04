@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"os"
-	"slices"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -24,14 +23,22 @@ type Event struct {
 }
 
 func (e Event) Valid() bool {
-	options := [3]string{"reddit", "metacritic", "spotify"}
-	return slices.Contains(options[:], e.Resource)
+	for _, opt := range [3]string{
+		"reddit",
+		"metacritic",
+		"spotify",
+	} {
+		if opt == e.Resource {
+			return true
+		}
+	}
+	return false
 }
 
 func Main(ctx context.Context, event Event) {
 	logger := log.Default()
 
-	if !slices.Contains([]string{"reddit", "metacritic", "spotify"}, event.Resource) {
+	if !event.Valid() {
 		logger.Fatal("invalid event type: ", event.Resource)
 		return
 	}
