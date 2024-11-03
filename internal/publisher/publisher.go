@@ -2,55 +2,35 @@ package publisher
 
 import (
 	"context"
-	"errors"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sns"
-	jsoniter "github.com/json-iterator/go"
+	"github.com/DataDog/datadog-go/v5/statsd"
 )
 
-// TODO(zeke): env vars are getting spread out! need to clean up somehow.
-const (
-	TopicArnEnv = "SNS_TOPIC_ARN"
-)
-
-var (
-	ErrTopicArnMissing = errors.New(TopicArnEnv + " is missing")
-)
-
-type SNSPublisher struct {
-	snsClient *sns.Client
-	topicArn  string
+type DDMetricsPublisher struct {
+	client *statsd.Client
 }
 
-func (p SNSPublisher) Publish(ctx context.Context, message any) error {
-	encoded, err := jsoniter.MarshalToString(message)
-	if err != nil {
-		return err
-	}
-
-	// don't need to set JSON anywhere, it should be fine since we're encoding.
-	// the docs elaborate on when to set `MessageStructure` to `json`:
-	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/sns#PublishInput
-	_, err = p.snsClient.Publish(ctx, &sns.PublishInput{
-		TopicArn: aws.String(p.topicArn),
-		Message:  aws.String(encoded),
+// TODO(zeke): not sure on having a strict or flexible API for `message`
+func (p DDMetricsPublisher) Publish(ctx context.Context, message any) error {
+	// TODO(zeke): want this to be more descriptive!
+	return p.client.Event(&statsd.Event{
+		Title: "refresh",
+		Text:  "songs persisted",
+		// TODO(zeke): set these?
+		//Tags: []string{},
+		//SourceTypeName: "",
+		//Hostname: "",
 	})
-	return err
 }
 
-// New constructs an SNSPublisher
-//
-// aws sdk go v2 recommends using shared credentials or config files ahead of
-// using env vars. See: https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/
-func New(ctx context.Context, topicArn string) (SNSPublisher, error) {
-	cfg, err := config.LoadDefaultConfig(ctx) // uses `.aws/credentials` and `.aws/config`
+// TODO(zeke): need to resolve using docker compose instead, also use env var, also enable dogstatsd
+// for dd agent
+func New(ctx context.Context, dogStatsdURL string) (DDMetricsPublisher, error) {
+	statsd, err := statsd.New(dogStatsdURL)
 	if err != nil {
-		return SNSPublisher{}, err
+		return DDMetricsPublisher{}, err
 	}
-	return SNSPublisher{
-		snsClient: sns.NewFromConfig(cfg),
-		topicArn:  topicArn,
+	return DDMetricsPublisher{
+		client: statsd,
 	}, nil
 }

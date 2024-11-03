@@ -21,8 +21,8 @@ type Controller struct {
 	Publisher Publisher
 }
 
-func New(ctx context.Context, db *sql.DB, publisher Publisher) (Controller, error) {
-	client, err := NewClient(http.DefaultTransport)
+func New(ctx context.Context, db *sql.DB, publisher Publisher, rt http.RoundTripper) (Controller, error) {
+	client, err := NewClient(rt)
 	if err != nil {
 		return Controller{}, err
 	}

@@ -18,13 +18,13 @@ type Controller struct {
 	Store  Store
 }
 
-func New(db *sql.DB) (Controller, error) {
+func New(db *sql.DB, rt http.RoundTripper) (Controller, error) {
 	secrets, err := loadSecrets(defaultSecretsPath)
 	if err != nil {
 		return Controller{}, err
 	}
 	return Controller{
-		Client: NewClient(WithSecrets(secrets)),
+		Client: NewClient(WithSecrets(secrets), WithRoundTripper(rt)),
 		Store:  NewStore(db),
 	}, nil
 }

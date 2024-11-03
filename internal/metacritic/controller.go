@@ -21,9 +21,9 @@ type Controller struct {
 	Store  Store
 }
 
-func New(db *sql.DB) Controller {
+func New(db *sql.DB, rt http.RoundTripper) Controller {
 	return Controller{
-		Client: NewClient(http.DefaultTransport),
+		Client: NewClient(rt),
 		Store:  NewStore(db),
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -19,7 +20,7 @@ func scrapeReddit(ctx context.Context, persistToFile, reset bool) {
 		panic(err)
 	}
 	defer db.Close()
-	svc, err := reddit.New(db)
+	svc, err := reddit.New(db, http.DefaultTransport)
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +66,7 @@ func scrapeMetacritic(medium metacritic.Medium, startYear int, numPages int) {
 		panic(err)
 	}
 	defer db.Close()
-	svc := metacritic.New(db)
+	svc := metacritic.New(db, http.DefaultTransport)
 	if err != nil {
 		panic(err)
 	}

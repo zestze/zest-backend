@@ -13,6 +13,9 @@ import (
 
 	"github.com/joho/godotenv"
 	sloggin "github.com/samber/slog-gin"
+	gintrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/gin-gonic/gin"
+	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -23,8 +26,6 @@ import (
 	"github.com/zestze/zest-backend/internal/spotify"
 	"github.com/zestze/zest-backend/internal/user"
 	"github.com/zestze/zest-backend/internal/zql"
-	"github.com/zestze/zest-backend/internal/ztrace"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/alecthomas/kong"
@@ -56,7 +57,7 @@ type ServerCmd struct {
 	ServiceName   string        `short:"n" env:"SERVICE_NAME" default:"zest"`
 	SessionLength time.Duration `env:"SESSION_LENGTH" default:"15m" help:"maximum length of user session"`
 	EnableTracing bool          `short:"t" env:"ENABLE_TRACING" help:"set to start tracing"`
-	SNSTopicARN   string        `env:"SNS_TOPIC_ARN" default:"" help:"AWS SNS Topic ARN, leave blank to use fake publisher"`
+	DogStatsdURL  string        `env:"DOGSTATSD_URL" default:""`
 }
 
 func (r *ServerCmd) Group() slog.Attr {
@@ -78,18 +79,6 @@ func (r *ServerCmd) Run() error {
 	logger := slog.Default().With(r.Group())
 	logger.Info("starting server on " + addr)
 
-	logger.Info("setting up tracer")
-	tp, err := ztrace.New(ctx, ztrace.Options{
-		ServiceName:   r.ServiceName,
-		OTLPEndppoint: r.OtlpEndpoint,
-		Enabled:       r.EnableTracing,
-	})
-	if err != nil {
-		logger.Error("error setting up tracer", "error", err)
-		return err
-	}
-	defer ztrace.Shutdown(ctx, tp, 2*time.Second)
-
 	router := gin.New()
 	router.Use(
 		sloggin.NewWithFilters(slog.Default(),
@@ -97,11 +86,19 @@ func (r *ServerCmd) Run() error {
 			sloggin.IgnorePath("/health")),
 		gin.Recovery(),
 		cors.Default(),
-		otelgin.Middleware(
-			r.ServiceName,
-			otelgin.WithSpanNameFormatter(ztrace.SpanName),
-		),
 	)
+
+	// TODO(zeke): rename otlp endpoint to something ddog specific
+	if r.OtlpEndpoint != "" {
+		logger.Info("setting up tracer")
+		tracer.Start(
+			tracer.WithEnv("prod"),
+			tracer.WithService(r.ServiceName),
+			tracer.WithServiceVersion("temp-sha"), // TODO(zeke): store git commit!
+		)
+		defer tracer.Stop()
+		router.Use(gintrace.Middleware(r.ServiceName))
+	}
 
 	logger.Info("setting up db connection")
 	db, err := zql.Postgres()
@@ -116,14 +113,15 @@ func (r *ServerCmd) Run() error {
 	uService := user.New(session, db)
 	uService.Register(router)
 
+	rt := httptrace.WrapRoundTripper(http.DefaultTransport)
 	{
 		v1 := router.Group("v1")
 		auth := user.Auth(session)
 
-		mService := metacritic.New(db)
+		mService := metacritic.New(db, rt)
 		mService.Register(v1, auth)
 
-		rService, err := reddit.New(db)
+		rService, err := reddit.New(db, rt)
 		if err != nil {
 			logger.Error("error setting up reddit service", "error", err)
 			return err
@@ -135,7 +133,7 @@ func (r *ServerCmd) Run() error {
 			logger.Error("error making publisher", "error", err)
 			return err
 		}
-		sService, err := spotify.New(ctx, db, publisher)
+		sService, err := spotify.New(ctx, db, publisher, rt)
 		if err != nil {
 			logger.Error("error setting up spotify service", "error", err)
 			return err
@@ -183,8 +181,8 @@ func (r *ServerCmd) Run() error {
 }
 
 func (r *ServerCmd) publisher(ctx context.Context) (spotify.Publisher, error) {
-	if r.SNSTopicARN != "" {
-		return publisher.New(ctx, r.SNSTopicARN)
+	if r.DogStatsdURL != "" {
+		return publisher.New(ctx, r.DogStatsdURL)
 	} else {
 		return fakePublisher{}, nil
 	}
