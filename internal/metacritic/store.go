@@ -25,7 +25,7 @@ func NewStore(db *sql.DB) Store {
 
 func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Persist")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
@@ -71,7 +71,7 @@ func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) 
 
 func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	lowerBound, upperBound := opts.RangeAsDate()
@@ -107,7 +107,7 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 
 func (s Store) SavePostsForUser(ctx context.Context, ids []int64, userID user.ID, action Action) error {
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Persist")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
@@ -141,7 +141,7 @@ func (s Store) SavePostsForUser(ctx context.Context, ids []int64, userID user.ID
 
 func (s Store) GetSavedPostsForUser(ctx context.Context, userID user.ID) ([]PostWithAction, error) {
 	ctx, span := ztrace.Start(ctx, "SQL metacritic.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,

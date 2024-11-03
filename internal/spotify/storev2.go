@@ -29,7 +29,7 @@ func (s StoreV2) PersistRecentlyPlayed(
 	ctx context.Context, songs []PlayHistoryObject, userID int,
 ) ([]string, error) {
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	// for each item, create all necessary rows
@@ -62,7 +62,7 @@ func (s StoreV2) GetRecentlyPlayed(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithTime, error) {
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
@@ -95,7 +95,7 @@ func (s StoreV2) GetRecentlyPlayedByArtist(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithListens, error) {
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
@@ -137,7 +137,7 @@ func (s StoreV2) GetRecentlyPlayedForArtist(
 	ctx context.Context, userID int, artist string, start, end time.Time,
 ) ([]NameWithListens, error) {
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `

@@ -4,11 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	jsoniter "github.com/json-iterator/go"
-	"github.com/zestze/zest-backend/internal/zql"
 	"log/slog"
 	"slices"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
+	"github.com/zestze/zest-backend/internal/zql"
 
 	"github.com/zestze/zest-backend/internal/zlog"
 	"github.com/zestze/zest-backend/internal/ztrace"
@@ -32,7 +33,7 @@ func NewStoreV1(db *sql.DB) StoreV1 {
 
 func (s StoreV1) GetAll(ctx context.Context, userID int) ([]PlayHistoryObject, error) {
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
@@ -71,7 +72,7 @@ func (s StoreV1) PersistRecentlyPlayed(
 	ctx context.Context, songs []PlayHistoryObject, userID int,
 ) ([]string, error) {
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
@@ -143,7 +144,7 @@ func (s StoreV1) GetRecentlyPlayed(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithTime, error) {
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
@@ -186,7 +187,7 @@ func (s StoreV1) GetRecentlyPlayedByArtist(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithListens, error) {
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
@@ -241,7 +242,7 @@ func (s StoreV1) GetRecentlyPlayedForArtist(
 	ctx context.Context, userID int, artist string, start, end time.Time,
 ) ([]NameWithListens, error) {
 	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,

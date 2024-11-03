@@ -10,6 +10,10 @@ services:
       - 8080:8080
     environment:
       - WITH_AUTH=true
+      - DD_SERVICE=zest
+      - DD_ENV=prod
+      - DD_AGENT_HOST=dd-agent
+      - DD_DOGSTATSD_URL=dd-agent:8125
     volumes:
       - type: bind
         source: ./secrets/

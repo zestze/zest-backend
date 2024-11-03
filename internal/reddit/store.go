@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
 	"github.com/zestze/zest-backend/internal/zql"
 
 	"github.com/zestze/zest-backend/internal/zlog"
@@ -24,7 +25,7 @@ func (s Store) PersistPosts(
 	ctx context.Context, savedPosts []Post, userID int,
 ) ([]int64, error) {
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Persist")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
@@ -83,7 +84,7 @@ func (s Store) PersistPosts(
 
 func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
@@ -120,7 +121,7 @@ func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
 
 func (s Store) GetSubreddits(ctx context.Context, userID int) ([]string, error) {
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
@@ -150,7 +151,7 @@ func (s Store) GetSubreddits(ctx context.Context, userID int) ([]string, error) 
 
 func (s Store) GetPostsFor(ctx context.Context, subreddit string, userID int) ([]Post, error) {
 	ctx, span := ztrace.Start(ctx, "SQL reddit.Get")
-	defer span.End()
+	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,

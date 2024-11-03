@@ -1,4 +1,22 @@
 services:
+  datadog:
+    profiles: [ "monitoring" ]
+    image: datadog/agent:latest
+    container_name: dd-agent
+    environment:
+      - DD_API_KEY=__boop__
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_AGENT_HOST=dd-aggent
+      - DD_SITE=datadoghq.com
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+    ports:
+      - 8125:8125/udp  # TODO(zeke): do i need other ports?
+      - 5000:5000 # should be the default port but not super sure.
   prometheus:
     profiles: [ "monitoring" ]
     image: prom/prometheus:latest

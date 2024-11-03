@@ -53,16 +53,16 @@ var cli struct {
 
 type ServerCmd struct {
 	Port          int           `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
-	OtlpEndpoint  string        `short:"e" env:"OTLP_ENDPOINT" default:"tempo:4317" help:"otlp endpoint for trace exporters"`
 	ServiceName   string        `short:"n" env:"SERVICE_NAME" default:"zest"`
 	SessionLength time.Duration `env:"SESSION_LENGTH" default:"15m" help:"maximum length of user session"`
 	EnableTracing bool          `short:"t" env:"ENABLE_TRACING" help:"set to start tracing"`
-	DogStatsdURL  string        `env:"DOGSTATSD_URL" default:""`
+	// TODO(zeke): might not be necessary?
+	DogStatsdURL string `env:"DD_DOGSTATSD_URL" help:"datadog agent statsd address"`
+	GitSha       string `env:"GIT_SHA" default:"dev" help:"sha of git commit for this deploy"`
 }
 
 func (r *ServerCmd) Group() slog.Attr {
 	return slog.Group("server", slog.Int("port", r.Port),
-		slog.String("otlp_endpoint", r.OtlpEndpoint),
 		slog.String("service_name", r.ServiceName),
 		slog.String("session_length", r.SessionLength.String()),
 		slog.Bool("enable_tracing", r.EnableTracing))
@@ -89,12 +89,11 @@ func (r *ServerCmd) Run() error {
 	)
 
 	// TODO(zeke): rename otlp endpoint to something ddog specific
-	if r.OtlpEndpoint != "" {
+	if r.EnableTracing {
 		logger.Info("setting up tracer")
 		tracer.Start(
-			tracer.WithEnv("prod"),
-			tracer.WithService(r.ServiceName),
-			tracer.WithServiceVersion("temp-sha"), // TODO(zeke): store git commit!
+			// most options are defined with DD_* in compose.yaml for zest-api
+			tracer.WithServiceVersion(r.GitSha),
 		)
 		defer tracer.Stop()
 		router.Use(gintrace.Middleware(r.ServiceName))
@@ -113,7 +112,10 @@ func (r *ServerCmd) Run() error {
 	uService := user.New(session, db)
 	uService.Register(router)
 
-	rt := httptrace.WrapRoundTripper(http.DefaultTransport)
+	rt := http.DefaultTransport
+	if r.EnableTracing {
+		rt = httptrace.WrapRoundTripper(rt)
+	}
 	{
 		v1 := router.Group("v1")
 		auth := user.Auth(session)
@@ -181,7 +183,7 @@ func (r *ServerCmd) Run() error {
 }
 
 func (r *ServerCmd) publisher(ctx context.Context) (spotify.Publisher, error) {
-	if r.DogStatsdURL != "" {
+	if r.EnableTracing {
 		return publisher.New(ctx, r.DogStatsdURL)
 	} else {
 		return fakePublisher{}, nil
