@@ -2,13 +2,17 @@ package zlog
 
 import (
 	"context"
-	"go.opentelemetry.io/otel/trace"
 	"log/slog"
+	"strconv"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
 	// TraceIDKey, SpanIDKey, and RequestIDKey are constants for log attributes
 	// the values are chosen to match `sloggin`
+	// TODO(zeke): maybe remove TraceIDKey and SpanIDKey?
 	TraceIDKey   = "trace-id"
 	SpanIDKey    = "span-id"
 	RequestIDKey = "id"
@@ -25,12 +29,18 @@ func Logger(ctx context.Context) *slog.Logger {
 	}
 	logger := slog.With(slog.String(RequestIDKey, rid))
 	// trace / span logic
-	spanCtx := trace.SpanContextFromContext(ctx)
-	if spanCtx.IsValid() {
-		// do things
-		traceID, spanID := spanCtx.TraceID().String(), spanCtx.SpanID().String()
-		logger = logger.With(slog.String(TraceIDKey, traceID),
-			slog.String(SpanIDKey, spanID))
+	// TODO(zeke): it'd be nice to remove this, but the "blessed" slog package for ddtrace requires
+	// all logs to use the context for its handler to function
+	span, ok := tracer.SpanFromContext(ctx)
+	if ok {
+		toSlog := func(fieldname string, id uint64) slog.Attr {
+			// TODO(zeke): could this be slog.Uint64?
+			return slog.String(fieldname, strconv.FormatUint(id, 10))
+		}
+		logger = logger.With(
+			toSlog(ext.LogKeyTraceID, span.Context().TraceID()),
+			toSlog(ext.LogKeySpanID, span.Context().SpanID()),
+		)
 	}
 	return logger
 }

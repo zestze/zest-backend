@@ -67,9 +67,6 @@ func scrapeMetacritic(medium metacritic.Medium, startYear int, numPages int) {
 	}
 	defer db.Close()
 	svc := metacritic.New(db, http.DefaultTransport)
-	if err != nil {
-		panic(err)
-	}
 	for year := startYear; year <= time.Now().Year(); year++ {
 		for i := 1; i <= numPages; i++ {
 

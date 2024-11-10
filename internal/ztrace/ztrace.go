@@ -21,7 +21,7 @@ func Start(ctx context.Context, name string) (context.Context, tracer.Span) {
 	// gin middleware oddity (this is just a hack for now)
 	// the span is stored in the request's context exclusively
 	if c, ok := ctx.(*gin.Context); ok {
-		ctx = c
+		ctx = c.Request.Context()
 	}
 	span, spanCtx := tracer.StartSpanFromContext(ctx, name)
 	return spanCtx, span

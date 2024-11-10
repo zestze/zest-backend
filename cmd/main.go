@@ -88,7 +88,8 @@ func (r *ServerCmd) Run() error {
 		cors.Default(),
 	)
 
-	// TODO(zeke): rename otlp endpoint to something ddog specific
+	// TODO(zeke): when building the image, check if on master. If on master, attach git sha.
+	// if not on master, then put "dev"
 	if r.EnableTracing {
 		logger.Info("setting up tracer")
 		tracer.Start(
