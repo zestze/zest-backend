@@ -65,7 +65,8 @@ func (svc Controller) fetchToken(ctx context.Context, userID int) (AccessToken, 
 }
 
 func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logger) {
-	token, err := svc.fetchToken(c, userID)
+	ctx := c.Request.Context()
+	token, err := svc.fetchToken(ctx, userID)
 	if err != nil {
 		logger.Error("error fetching token", "error", err)
 		zgin.InternalError(c)
@@ -73,7 +74,7 @@ func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logge
 	}
 
 	after := time.Now().Add(-time.Hour).UTC()
-	items, err := svc.Client.GetRecentlyPlayed(c, token, after)
+	items, err := svc.Client.GetRecentlyPlayed(ctx, token, after)
 	if err != nil {
 		logger.Error("error fetching songs", "error", err)
 		zgin.InternalError(c)
@@ -84,7 +85,7 @@ func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logge
 		"num_persisted": 0,
 	}
 	if len(items) == 0 {
-		if err = svc.Publisher.Publish(c, msg); err != nil {
+		if err = svc.Publisher.Publish(ctx, msg); err != nil {
 			logger.Error("error publishing message", "error", err)
 		}
 		c.IndentedJSON(http.StatusOK, msg)
@@ -92,14 +93,14 @@ func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logge
 	}
 
 	// persist songs via both methods!
-	persisted, err := svc.StoreV1.PersistRecentlyPlayed(c, items, userID)
+	persisted, err := svc.StoreV1.PersistRecentlyPlayed(ctx, items, userID)
 	if err != nil {
 		logger.Error("error persisting songs", "error", err)
 		zgin.InternalError(c)
 		return
 	}
 
-	_, err = svc.StoreV2.PersistRecentlyPlayed(c, items, userID)
+	_, err = svc.StoreV2.PersistRecentlyPlayed(ctx, items, userID)
 	if err != nil {
 		logger.Error("error persisting songs", "error", err)
 		zgin.InternalError(c)
@@ -107,7 +108,7 @@ func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logge
 	}
 
 	msg["num_persisted"] = len(persisted)
-	if err = svc.Publisher.Publish(c, msg); err != nil {
+	if err = svc.Publisher.Publish(ctx, msg); err != nil {
 		logger.Error("error publishing message", "error", err)
 	}
 	c.IndentedJSON(http.StatusOK, msg)

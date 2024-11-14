@@ -129,7 +129,7 @@ func (svc Controller) refresh(c *gin.Context) {
 	currYear := time.Now().UTC().Year()
 	const numPages = 5
 
-	g, ctx := errgroup.WithContext(c)
+	g, ctx := errgroup.WithContext(c.Request.Context())
 	const HARDCODED_LIMIT = 20
 	g.SetLimit(HARDCODED_LIMIT)
 
