@@ -47,10 +47,11 @@ func (svc Controller) getPosts(c *gin.Context, userID user.ID, logger *slog.Logg
 		savedPosts []Post
 		err        error
 	)
+	ctx := c.Request.Context()
 	if subreddit := c.DefaultQuery("subreddit", "none"); subreddit != "none" {
-		savedPosts, err = svc.Store.GetPostsFor(c, subreddit, userID)
+		savedPosts, err = svc.Store.GetPostsFor(ctx, subreddit, userID)
 	} else {
-		savedPosts, err = svc.Store.GetAllPosts(c, userID)
+		savedPosts, err = svc.Store.GetAllPosts(ctx, userID)
 	}
 
 	if err != nil {

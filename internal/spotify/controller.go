@@ -199,7 +199,7 @@ func (svc Controller) addToken(c *gin.Context, userID user.ID, logger *slog.Logg
 		return
 	}
 
-	if err := svc.StoreV2.PersistToken(c, token, userID); err != nil {
+	if err := svc.StoreV2.PersistToken(c.Request.Context(), token, userID); err != nil {
 		logger.Error("error persisting token", "error", err)
 		zgin.InternalError(c)
 		return
@@ -220,7 +220,8 @@ func (svc Controller) getSongs(c *gin.Context, userID user.ID, logger *slog.Logg
 		return
 	}
 
-	songs, err := svc.StoreV2.GetRecentlyPlayed(c, userID, opts.Start, opts.End)
+	songs, err := svc.StoreV2.GetRecentlyPlayed(
+		c.Request.Context(), userID, opts.Start, opts.End)
 	if err != nil {
 		logger.Error("error loading recently played songs", "error", err)
 		zgin.InternalError(c)
@@ -242,7 +243,8 @@ func (svc Controller) getArtists(c *gin.Context, userID user.ID, logger *slog.Lo
 		return
 	}
 
-	artists, err := svc.StoreV2.GetRecentlyPlayedByArtist(c, userID, opts.Start, opts.End)
+	artists, err := svc.StoreV2.GetRecentlyPlayedByArtist(
+		c.Request.Context(), userID, opts.Start, opts.End)
 	if err != nil {
 		logger.Error("error loading recently played artists", "error", err)
 		zgin.InternalError(c)
@@ -269,7 +271,8 @@ func (svc Controller) getSongsForArtist(c *gin.Context, userID user.ID, logger *
 		return
 	}
 
-	songs, err := svc.StoreV2.GetRecentlyPlayedForArtist(c, userID, opts.Artist, opts.Start, opts.End)
+	songs, err := svc.StoreV2.GetRecentlyPlayedForArtist(
+		c.Request.Context(), userID, opts.Artist, opts.Start, opts.End)
 	if err != nil {
 		logger.Error("error loading recently played songs for artist", "error", err)
 		zgin.InternalError(c)
