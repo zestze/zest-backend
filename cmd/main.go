@@ -16,6 +16,7 @@ import (
 	gintrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/gin-gonic/gin"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -52,10 +53,11 @@ var cli struct {
 }
 
 type ServerCmd struct {
-	Port          int           `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
-	ServiceName   string        `short:"n" env:"SERVICE_NAME" default:"zest"`
-	SessionLength time.Duration `env:"SESSION_LENGTH" default:"15m" help:"maximum length of user session"`
-	EnableTracing bool          `short:"t" env:"ENABLE_TRACING" help:"set to start tracing"`
+	Port            int           `short:"p" env:"PORT" default:"8080" help:"port to run server on"`
+	ServiceName     string        `short:"n" env:"SERVICE_NAME" default:"zest"`
+	SessionLength   time.Duration `env:"SESSION_LENGTH" default:"15m" help:"maximum length of user session"`
+	EnableTracing   bool          `short:"t" env:"ENABLE_TRACING" help:"set to start tracing"`
+	EnableProfiling bool          `env:"ENABLE_PROFILING" help:"set to enable profiling"`
 	// TODO(zeke): might not be necessary?
 	DogStatsdURL string `env:"DD_DOGSTATSD_URL" help:"datadog agent statsd address"`
 	GitSha       string `env:"GIT_SHA" default:"dev" help:"sha of git commit for this deploy"`
@@ -98,6 +100,19 @@ func (r *ServerCmd) Run() error {
 		)
 		defer tracer.Stop()
 		router.Use(gintrace.Middleware(r.ServiceName))
+	}
+	if r.EnableProfiling {
+		logger.Info("setting up profiler")
+		if err := profiler.Start(
+			// most options are defined with DD_* in compose.yaml for zest-api
+			profiler.WithVersion(r.GitSha),
+			profiler.WithProfileTypes(
+				profiler.CPUProfile,
+				profiler.HeapProfile,
+			),
+		); err != nil {
+			return err
+		}
 	}
 
 	logger.Info("setting up db connection")
