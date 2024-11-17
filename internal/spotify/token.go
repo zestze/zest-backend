@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/zestze/zest-backend/internal/zlog"
-	"github.com/zestze/zest-backend/internal/ztrace"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type AccessToken struct {
@@ -54,8 +54,13 @@ func NewTokenStore(db *sql.DB) TokenStore {
 	}
 }
 
+var spanOpts = []tracer.StartSpanOption{
+	tracer.SpanType("db"),
+	tracer.ResourceName("sql"),
+}
+
 func (s TokenStore) PersistToken(ctx context.Context, token AccessToken, userID int) error {
-	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
+	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Persist", spanOpts...)
 	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
@@ -77,7 +82,7 @@ func (s TokenStore) PersistToken(ctx context.Context, token AccessToken, userID 
 }
 
 func (s TokenStore) GetToken(ctx context.Context, userID int) (AccessToken, error) {
-	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
+	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Get", spanOpts...)
 	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
