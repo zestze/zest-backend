@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/zestze/zest-backend/internal/zlog"
-	"github.com/zestze/zest-backend/internal/ztrace"
 )
 
 type Store struct {
@@ -28,8 +27,6 @@ type User struct {
 
 // can also get user by ID!
 func (s Store) GetUser(ctx context.Context, username string) (User, error) {
-	ctx, span := ztrace.Start(ctx, "SQL user.Get")
-	defer span.End()
 	logger := zlog.Logger(ctx)
 
 	user := User{
@@ -48,8 +45,6 @@ func (s Store) GetUser(ctx context.Context, username string) (User, error) {
 }
 
 func (s Store) PersistUser(ctx context.Context, username, password string, salt int) (int64, error) {
-	ctx, span := ztrace.Start(ctx, "SQL user.Persist")
-	defer span.End()
 	logger := zlog.Logger(ctx).With(slog.String("username", username))
 
 	var id int64

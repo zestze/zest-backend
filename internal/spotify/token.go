@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/zestze/zest-backend/internal/zlog"
-	"github.com/zestze/zest-backend/internal/ztrace"
 	"time"
+
+	"github.com/zestze/zest-backend/internal/zlog"
 )
 
 type AccessToken struct {
@@ -54,8 +54,6 @@ func NewTokenStore(db *sql.DB) TokenStore {
 }
 
 func (s TokenStore) PersistToken(ctx context.Context, token AccessToken, userID int) error {
-	ctx, span := ztrace.Start(ctx, "SQL spotify.Persist")
-	defer span.End()
 	logger := zlog.Logger(ctx)
 
 	if _, err := s.db.ExecContext(ctx,
@@ -76,8 +74,6 @@ func (s TokenStore) PersistToken(ctx context.Context, token AccessToken, userID 
 }
 
 func (s TokenStore) GetToken(ctx context.Context, userID int) (AccessToken, error) {
-	ctx, span := ztrace.Start(ctx, "SQL spotify.Get")
-	defer span.End()
 	logger := zlog.Logger(ctx)
 
 	var token AccessToken

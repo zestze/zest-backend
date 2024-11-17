@@ -49,7 +49,8 @@ func (svc Controller) Login(c *gin.Context) {
 	}
 
 	// compare username password in store!
-	user, err := svc.Store.GetUser(c, creds.Username)
+	ctx := c.Request.Context()
+	user, err := svc.Store.GetUser(ctx, creds.Username)
 	if err != nil {
 		logger.Error("error fetching password for login", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
@@ -72,7 +73,7 @@ func (svc Controller) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := svc.sess.Start(c, user, c.ClientIP())
+	token, err := svc.sess.Start(ctx, user, c.ClientIP())
 	if err != nil {
 		logger.Error("error when starting session for user", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
@@ -112,7 +113,7 @@ func (svc Controller) Signup(c *gin.Context) {
 		return
 	}
 
-	id, err := svc.Store.PersistUser(c, creds.Username, string(hash), SALT)
+	id, err := svc.Store.PersistUser(c.Request.Context(), creds.Username, string(hash), SALT)
 	if err != nil {
 		logger.Error("error persisting user", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
@@ -136,7 +137,8 @@ func (svc Controller) Refresh(c *gin.Context) {
 	}
 
 	clientIP := c.ClientIP()
-	user, err := svc.sess.GetUser(c, token, clientIP)
+	ctx := c.Request.Context()
+	user, err := svc.sess.GetUser(ctx, token, clientIP)
 	if err != nil && (errors.Is(err, redis.Nil) || errors.Is(err, ErrInvalidIP)) {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"error": "invalid token",
@@ -150,7 +152,7 @@ func (svc Controller) Refresh(c *gin.Context) {
 		return
 	}
 
-	newToken, err := svc.sess.Start(c, user, clientIP)
+	newToken, err := svc.sess.Start(ctx, user, clientIP)
 	if err != nil {
 		logger.Error("error starting user session", "error", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{

@@ -18,13 +18,13 @@ type Controller struct {
 	Store  Store
 }
 
-func New(db *sql.DB) (Controller, error) {
+func New(db *sql.DB, rt http.RoundTripper) (Controller, error) {
 	secrets, err := loadSecrets(defaultSecretsPath)
 	if err != nil {
 		return Controller{}, err
 	}
 	return Controller{
-		Client: NewClient(WithSecrets(secrets)),
+		Client: NewClient(WithSecrets(secrets), WithRoundTripper(rt)),
 		Store:  NewStore(db),
 	}, nil
 }
@@ -47,10 +47,11 @@ func (svc Controller) getPosts(c *gin.Context, userID user.ID, logger *slog.Logg
 		savedPosts []Post
 		err        error
 	)
+	ctx := c.Request.Context()
 	if subreddit := c.DefaultQuery("subreddit", "none"); subreddit != "none" {
-		savedPosts, err = svc.Store.GetPostsFor(c, subreddit, userID)
+		savedPosts, err = svc.Store.GetPostsFor(ctx, subreddit, userID)
 	} else {
-		savedPosts, err = svc.Store.GetAllPosts(c, userID)
+		savedPosts, err = svc.Store.GetAllPosts(ctx, userID)
 	}
 
 	if err != nil {
@@ -65,7 +66,7 @@ func (svc Controller) getPosts(c *gin.Context, userID user.ID, logger *slog.Logg
 }
 
 func (svc Controller) getSubreddits(c *gin.Context, userID user.ID, logger *slog.Logger) {
-	subreddits, err := svc.Store.GetSubreddits(c, userID)
+	subreddits, err := svc.Store.GetSubreddits(c.Request.Context(), userID)
 	if err != nil {
 		logger.Error("error loading subreddits", "error", err)
 		zgin.InternalError(c)
@@ -78,7 +79,8 @@ func (svc Controller) getSubreddits(c *gin.Context, userID user.ID, logger *slog
 }
 
 func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logger) {
-	savedPosts, err := svc.Client.Fetch(c, false)
+	ctx := c.Request.Context()
+	savedPosts, err := svc.Client.Fetch(ctx, false)
 	if err != nil {
 		logger.Error("error fetching posts", "error", err)
 		zgin.InternalError(c)
@@ -87,7 +89,7 @@ func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logge
 
 	logger.Info("successfully fetched posts", slog.Int("num_posts", len(savedPosts)))
 
-	ids, err := svc.Store.PersistPosts(c, savedPosts, userID)
+	ids, err := svc.Store.PersistPosts(ctx, savedPosts, userID)
 	if err != nil {
 		logger.Error("error persisting posts", "error", err)
 		zgin.InternalError(c)

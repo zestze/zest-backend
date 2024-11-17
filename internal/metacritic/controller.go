@@ -21,9 +21,9 @@ type Controller struct {
 	Store  Store
 }
 
-func New(db *sql.DB) Controller {
+func New(db *sql.DB, rt http.RoundTripper) Controller {
 	return Controller{
-		Client: NewClient(http.DefaultTransport),
+		Client: NewClient(rt),
 		Store:  NewStore(db),
 	}
 }
@@ -53,7 +53,8 @@ func (svc Controller) savePosts(c *gin.Context, userID user.ID, logger *slog.Log
 		return
 	}
 
-	if err := svc.Store.SavePostsForUser(c, input.IDs, userID, input.Action); err != nil {
+	if err := svc.Store.SavePostsForUser(
+		c.Request.Context(), input.IDs, userID, input.Action); err != nil {
 		logger.Error("error saving posts", "error", err)
 		zgin.InternalError(c)
 		return
@@ -83,7 +84,7 @@ func (svc Controller) getPostsForAPI(c *gin.Context) {
 	logger = logger.With(opts.Group())
 
 	logger.Info("going to fetch posts")
-	posts, err := svc.Store.GetPosts(c, opts)
+	posts, err := svc.Store.GetPosts(c.Request.Context(), opts)
 	if err != nil {
 		slog.Error("error fetching posts", "error", err)
 		zgin.InternalError(c)
@@ -129,7 +130,7 @@ func (svc Controller) refresh(c *gin.Context) {
 	currYear := time.Now().UTC().Year()
 	const numPages = 5
 
-	g, ctx := errgroup.WithContext(c)
+	g, ctx := errgroup.WithContext(c.Request.Context())
 	const HARDCODED_LIMIT = 20
 	g.SetLimit(HARDCODED_LIMIT)
 

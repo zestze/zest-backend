@@ -8,7 +8,12 @@ endif
 
 COMPOSE=$(DOCKER) compose
 
-.PHONY: build up server dev monitor all clean down down-with-volumes
+.PHONY: build up server dev monitor all clean down down-with-volumes build-with-version
+
+# TODO(zeke): make this grab branch name if not on master / main
+build-with-version:
+	$(COMPOSE) --profile server build \
+		--build-arg git_version=$(shell git rev-parse --short HEAD)
 
 build:
 	$(COMPOSE) --profile server build
@@ -90,7 +95,7 @@ backfill:
 
 .PHONY: deploy serverless
 
-deploy: build
+deploy: build-with-version
 	$(DOCKER) save zest-backend-zest-api > zest-api.tar
 	scp zest-api.tar droplet:~/workspace/zest-api.tar
 	ssh droplet 'make -C workspace deploy'

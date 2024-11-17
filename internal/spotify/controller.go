@@ -21,8 +21,8 @@ type Controller struct {
 	Publisher Publisher
 }
 
-func New(ctx context.Context, db *sql.DB, publisher Publisher) (Controller, error) {
-	client, err := NewClient(http.DefaultTransport)
+func New(ctx context.Context, db *sql.DB, publisher Publisher, rt http.RoundTripper) (Controller, error) {
+	client, err := NewClient(rt)
 	if err != nil {
 		return Controller{}, err
 	}
@@ -65,7 +65,8 @@ func (svc Controller) fetchToken(ctx context.Context, userID int) (AccessToken, 
 }
 
 func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logger) {
-	token, err := svc.fetchToken(c, userID)
+	ctx := c.Request.Context()
+	token, err := svc.fetchToken(ctx, userID)
 	if err != nil {
 		logger.Error("error fetching token", "error", err)
 		zgin.InternalError(c)
@@ -73,7 +74,7 @@ func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logge
 	}
 
 	after := time.Now().Add(-time.Hour).UTC()
-	items, err := svc.Client.GetRecentlyPlayed(c, token, after)
+	items, err := svc.Client.GetRecentlyPlayed(ctx, token, after)
 	if err != nil {
 		logger.Error("error fetching songs", "error", err)
 		zgin.InternalError(c)
@@ -84,7 +85,7 @@ func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logge
 		"num_persisted": 0,
 	}
 	if len(items) == 0 {
-		if err = svc.Publisher.Publish(c, msg); err != nil {
+		if err = svc.Publisher.Publish(ctx, msg); err != nil {
 			logger.Error("error publishing message", "error", err)
 		}
 		c.IndentedJSON(http.StatusOK, msg)
@@ -92,14 +93,14 @@ func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logge
 	}
 
 	// persist songs via both methods!
-	persisted, err := svc.StoreV1.PersistRecentlyPlayed(c, items, userID)
+	persisted, err := svc.StoreV1.PersistRecentlyPlayed(ctx, items, userID)
 	if err != nil {
 		logger.Error("error persisting songs", "error", err)
 		zgin.InternalError(c)
 		return
 	}
 
-	_, err = svc.StoreV2.PersistRecentlyPlayed(c, items, userID)
+	_, err = svc.StoreV2.PersistRecentlyPlayed(ctx, items, userID)
 	if err != nil {
 		logger.Error("error persisting songs", "error", err)
 		zgin.InternalError(c)
@@ -107,7 +108,7 @@ func (svc Controller) refresh(c *gin.Context, userID user.ID, logger *slog.Logge
 	}
 
 	msg["num_persisted"] = len(persisted)
-	if err = svc.Publisher.Publish(c, msg); err != nil {
+	if err = svc.Publisher.Publish(ctx, msg); err != nil {
 		logger.Error("error publishing message", "error", err)
 	}
 	c.IndentedJSON(http.StatusOK, msg)
@@ -198,7 +199,7 @@ func (svc Controller) addToken(c *gin.Context, userID user.ID, logger *slog.Logg
 		return
 	}
 
-	if err := svc.StoreV2.PersistToken(c, token, userID); err != nil {
+	if err := svc.StoreV2.PersistToken(c.Request.Context(), token, userID); err != nil {
 		logger.Error("error persisting token", "error", err)
 		zgin.InternalError(c)
 		return
@@ -219,7 +220,8 @@ func (svc Controller) getSongs(c *gin.Context, userID user.ID, logger *slog.Logg
 		return
 	}
 
-	songs, err := svc.StoreV2.GetRecentlyPlayed(c, userID, opts.Start, opts.End)
+	songs, err := svc.StoreV2.GetRecentlyPlayed(
+		c.Request.Context(), userID, opts.Start, opts.End)
 	if err != nil {
 		logger.Error("error loading recently played songs", "error", err)
 		zgin.InternalError(c)
@@ -241,7 +243,8 @@ func (svc Controller) getArtists(c *gin.Context, userID user.ID, logger *slog.Lo
 		return
 	}
 
-	artists, err := svc.StoreV2.GetRecentlyPlayedByArtist(c, userID, opts.Start, opts.End)
+	artists, err := svc.StoreV2.GetRecentlyPlayedByArtist(
+		c.Request.Context(), userID, opts.Start, opts.End)
 	if err != nil {
 		logger.Error("error loading recently played artists", "error", err)
 		zgin.InternalError(c)
@@ -268,7 +271,8 @@ func (svc Controller) getSongsForArtist(c *gin.Context, userID user.ID, logger *
 		return
 	}
 
-	songs, err := svc.StoreV2.GetRecentlyPlayedForArtist(c, userID, opts.Artist, opts.Start, opts.End)
+	songs, err := svc.StoreV2.GetRecentlyPlayedForArtist(
+		c.Request.Context(), userID, opts.Artist, opts.Start, opts.End)
 	if err != nil {
 		logger.Error("error loading recently played songs for artist", "error", err)
 		zgin.InternalError(c)

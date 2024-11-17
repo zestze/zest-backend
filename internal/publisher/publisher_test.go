@@ -15,7 +15,8 @@ func TestSNSPublisher_Publish(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	publisher, err := New(ctx, "arn:aws:sns:us-east-1:862873347672:spotify-update")
+	LOCAL_URL := "127.0.0.1:8125"
+	publisher, err := New(ctx, LOCAL_URL)
 	assert.NoError(t, err)
 
 	err = publisher.Publish(ctx, gin.H{

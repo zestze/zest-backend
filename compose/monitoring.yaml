@@ -1,66 +1,26 @@
 services:
-  prometheus:
+  datadog:
     profiles: [ "monitoring" ]
-    image: prom/prometheus:latest
-    container_name: prometheus
-    restart: unless-stopped
-    ports:
-      - 9090:9090
-    volumes:
-      - prometheus-data:/prometheus
-      - ../configs/prometheus.yml:/etc/prometheus/prometheus.yml
-    depends_on:
-      - zest-api
-  grafana:
-    profiles: [ "monitoring" ]
-    image: grafana/grafana-enterprise
-    container_name: grafana
-    restart: unless-stopped
-    ports:
-      - 3000:3000
-    volumes:
-      - grafana-storage:/var/lib/grafana
-  tempo:
-    profiles: [ "monitoring" ]
-    image: grafana/tempo:latest
-    container_name: tempo
-    command: [ "-config.file=/etc/tempo.yaml" ]
-    restart: unless-stopped
-    volumes:
-      - tempo-data:/tmp/tempo
-      - ../configs/tempo.yaml:/etc/tempo.yaml
-    ports:
-      - 3200:3200 # tempo
-      - 9095:9095 # tempo grpc
-      - 4317:4317 # otlp grpc
-      - 4318:4318 # otlp http
-  loki:
-    profiles: [ "monitoring" ]
-    image: grafana/loki:latest  # deploy in monolithic mode for now. In the future use simple scalable
-    container_name: loki
-    ports:
-      - 3100:3100
-  agent:
-    profiles: [ "monitoring" ]
-    image: grafana/agent:v0.40.1
-    container_name: agent
-    command:
-      - "run"
-      - "--server.http.listen-addr=0.0.0.0:12345" # for UI
-      - "/etc/agent/config.river"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock # TODO(zeke): need a better way of doing this!
-      - ../configs/config.river:/etc/agent/config.river
+    image: datadog/agent:latest
+    container_name: dd-agent
     environment:
-      - AGENT_MODE=flow
-      - LOKI_HOST=loki:3100
+      - DD_API_KEY=__boop__
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_AGENT_HOST=dd-aggent
+      - DD_SITE=datadoghq.com
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE=name:.*
+      - DD_CONTAINER_INCLUDE=name:zest-api # TODO(zeke): temporary, exclude all except zest api
+      #- DD_CONTAINER_EXCLUDE_LOGS="name:dd-agent"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+      - /opt/datadog-agent/run:/opt/datadog-agent/run:rw
     ports:
-      - 12345:12345 # debugging UI
-    depends_on:
-      - loki
-      - tempo
-
-volumes:
-  prometheus-data:
-  grafana-storage:
-  tempo-data:
+      - 8125:8125
+      - 8126:8126
+      - 5000:5000 # should be the default port but not super sure.

@@ -11,6 +11,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/redis/go-redis/v9"
 	"github.com/zestze/zest-backend/internal/zlog"
+	redistrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/redis/go-redis.v9"
 )
 
 var (
@@ -29,19 +30,58 @@ type item struct {
 }
 
 type Session struct {
-	*redis.Client
+	redis.UniversalClient
 	MaxAge time.Duration
 }
 
-// connecting locally so should be fine to set no password
-func NewSession(maxAge time.Duration) Session {
+func NewSession(opts ...RedisOption) Session {
+	cfg := defaultRedisConfig()
+	for _, o := range opts {
+		o(&cfg)
+	}
+
+	var client redis.UniversalClient = redis.NewClient(&redis.Options{
+		Addr:     cfg.Addr,
+		Password: cfg.Password,
+		DB:       cfg.DB,
+	})
+	if cfg.tracing {
+		redistrace.WrapClient(client)
+	}
 	return Session{
-		Client: redis.NewClient(&redis.Options{
-			Addr:     "redis:6379",
-			Password: "",
-			DB:       0,
-		}),
-		MaxAge: maxAge,
+		UniversalClient: client,
+		MaxAge:          cfg.MaxAge,
+	}
+}
+
+type redisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+	MaxAge   time.Duration
+	tracing  bool
+}
+
+func defaultRedisConfig() redisConfig {
+	return redisConfig{
+		Addr: "redis:6379",
+		// connecting locally so should be fine to set no password
+		Password: "",
+		DB:       0,
+	}
+}
+
+type RedisOption func(cfg *redisConfig)
+
+func WithTracing() RedisOption {
+	return func(cfg *redisConfig) {
+		cfg.tracing = true
+	}
+}
+
+func WithMaxAge(maxAge time.Duration) RedisOption {
+	return func(cfg *redisConfig) {
+		cfg.MaxAge = maxAge
 	}
 }
 
@@ -114,7 +154,7 @@ func Auth(sess Session) gin.HandlerFunc {
 			return
 		}
 
-		user, err := sess.GetUser(c, token, c.ClientIP())
+		user, err := sess.GetUser(c.Request.Context(), token, c.ClientIP())
 		if err != nil && (errors.Is(err, ErrInvalidIP) || errors.Is(err, redis.Nil)) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "invalid token",
