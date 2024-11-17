@@ -8,7 +8,9 @@ import (
 	"log/slog"
 	"os"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	sqltrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
+
+	"github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 )
@@ -21,25 +23,39 @@ func Postgres() (*sql.DB, error) {
 	return PostgresWithConfig(defaultConfig())
 }
 
-func PostgresWithOptions(opts ...func(cfg *PostgresConfig)) (*sql.DB, error) {
+type OpenOption func(cfg *PostgresConfig)
+
+func PostgresWithOptions(opts ...OpenOption) (*sql.DB, error) {
 	cfg := defaultConfig()
 
 	for _, o := range opts {
 		o(&cfg)
 	}
 
-	return sql.Open("pgx", cfg.String())
+	pgx := "pgx"
+	if cfg.tracing {
+		sqltrace.Register(pgx, stdlib.GetDefaultDriver())
+		return sqltrace.Open(pgx, cfg.String())
+	}
+
+	return sql.Open(pgx, cfg.String())
 }
 
-func WithHost(host string) func(cfg *PostgresConfig) {
+func WithHost(host string) OpenOption {
 	return func(cfg *PostgresConfig) {
 		cfg.host = host
 	}
 }
 
-func WithDatabase(dbname string) func(cfg *PostgresConfig) {
+func WithDatabase(dbname string) OpenOption {
 	return func(cfg *PostgresConfig) {
 		cfg.dbname = dbname
+	}
+}
+
+func WithTracing() func(cfg *PostgresConfig) {
+	return func(cfg *PostgresConfig) {
+		cfg.tracing = true
 	}
 }
 
@@ -53,6 +69,7 @@ type PostgresConfig struct {
 	dbname   string
 	username string
 	password string
+	tracing  bool
 }
 
 // String returns config as DSN

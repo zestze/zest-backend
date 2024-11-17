@@ -116,7 +116,11 @@ func (r *ServerCmd) Run() error {
 	}
 
 	logger.Info("setting up db connection")
-	db, err := zql.Postgres()
+	var zqlOpts []zql.OpenOption
+	if r.EnableTracing {
+		zqlOpts = append(zqlOpts, zql.WithTracing())
+	}
+	db, err := zql.PostgresWithOptions(zqlOpts...)
 	if err != nil {
 		logger.Error("error initializing db", "error", err)
 		return err
