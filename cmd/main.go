@@ -128,7 +128,8 @@ func (r *ServerCmd) Run() error {
 	defer db.Close()
 
 	logger.Info("setting up services")
-	session := user.NewSession(r.SessionLength)
+	session := user.NewSession(user.WithTracing(),
+		user.WithMaxAge(r.SessionLength))
 	uService := user.New(session, db)
 	uService.Register(router)
 
