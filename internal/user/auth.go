@@ -34,19 +34,17 @@ type Session struct {
 	MaxAge time.Duration
 }
 
-// connecting locally so should be fine to set no password
 func NewSession(opts ...RedisOption) Session {
 	cfg := defaultRedisConfig()
 	for _, o := range opts {
 		o(&cfg)
 	}
 
-	ro := redis.Options{
+	var client redis.UniversalClient = redis.NewClient(&redis.Options{
 		Addr:     cfg.Addr,
 		Password: cfg.Password,
 		DB:       cfg.DB,
-	}
-	var client redis.UniversalClient = redis.NewClient(&ro)
+	})
 	if cfg.tracing {
 		redistrace.WrapClient(client)
 	}
@@ -66,7 +64,8 @@ type redisConfig struct {
 
 func defaultRedisConfig() redisConfig {
 	return redisConfig{
-		Addr:     "redis:6379",
+		Addr: "redis:6379",
+		// connecting locally so should be fine to set no password
 		Password: "",
 		DB:       0,
 	}
@@ -155,7 +154,7 @@ func Auth(sess Session) gin.HandlerFunc {
 			return
 		}
 
-		user, err := sess.GetUser(c, token, c.ClientIP())
+		user, err := sess.GetUser(c.Request.Context(), token, c.ClientIP())
 		if err != nil && (errors.Is(err, ErrInvalidIP) || errors.Is(err, redis.Nil)) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "invalid token",
