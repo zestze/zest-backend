@@ -6,7 +6,6 @@ import (
 	"errors"
 
 	"github.com/zestze/zest-backend/internal/zql"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/zestze/zest-backend/internal/zlog"
 )
@@ -21,16 +20,9 @@ func NewStore(db *sql.DB) Store {
 	}
 }
 
-var spanOpts = []tracer.StartSpanOption{
-	tracer.ResourceName("sql"),
-	tracer.SpanType("db"),
-}
-
 func (s Store) PersistPosts(
 	ctx context.Context, savedPosts []Post, userID int,
 ) ([]int64, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "reddit.Persist", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
@@ -88,8 +80,6 @@ func (s Store) PersistPosts(
 }
 
 func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "reddit.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
@@ -125,8 +115,6 @@ func (s Store) GetAllPosts(ctx context.Context, userID int) ([]Post, error) {
 }
 
 func (s Store) GetSubreddits(ctx context.Context, userID int) ([]string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "reddit.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
@@ -155,8 +143,6 @@ func (s Store) GetSubreddits(ctx context.Context, userID int) ([]string, error) 
 }
 
 func (s Store) GetPostsFor(ctx context.Context, subreddit string, userID int) ([]Post, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "reddit.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,

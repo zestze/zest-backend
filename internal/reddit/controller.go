@@ -66,7 +66,7 @@ func (svc Controller) getPosts(c *gin.Context, userID user.ID, logger *slog.Logg
 }
 
 func (svc Controller) getSubreddits(c *gin.Context, userID user.ID, logger *slog.Logger) {
-	subreddits, err := svc.Store.GetSubreddits(c, userID)
+	subreddits, err := svc.Store.GetSubreddits(c.Request.Context(), userID)
 	if err != nil {
 		logger.Error("error loading subreddits", "error", err)
 		zgin.InternalError(c)

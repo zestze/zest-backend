@@ -10,7 +10,6 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/zestze/zest-backend/internal/zql"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/zestze/zest-backend/internal/zlog"
 )
@@ -32,8 +31,6 @@ func NewStoreV1(db *sql.DB) StoreV1 {
 }
 
 func (s StoreV1) GetAll(ctx context.Context, userID int) ([]PlayHistoryObject, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
@@ -71,8 +68,6 @@ WHERE user_id=$1`, userID)
 func (s StoreV1) PersistRecentlyPlayed(
 	ctx context.Context, songs []PlayHistoryObject, userID int,
 ) ([]string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Persist", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
@@ -143,8 +138,6 @@ func (s StoreV1) PersistRecentlyPlayed(
 func (s StoreV1) GetRecentlyPlayed(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithTime, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
@@ -186,8 +179,6 @@ type TrackBlob struct {
 func (s StoreV1) GetRecentlyPlayedByArtist(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithListens, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
@@ -241,8 +232,6 @@ func toSlice(m map[string]int) []NameWithListens {
 func (s StoreV1) GetRecentlyPlayedForArtist(
 	ctx context.Context, userID int, artist string, start, end time.Time,
 ) ([]NameWithListens, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,

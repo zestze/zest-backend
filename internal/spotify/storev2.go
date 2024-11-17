@@ -10,7 +10,6 @@ import (
 
 	"github.com/zestze/zest-backend/internal/zlog"
 	"github.com/zestze/zest-backend/internal/zql"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type StoreV2 struct {
@@ -28,8 +27,6 @@ func NewStoreV2(db *sql.DB) StoreV2 {
 func (s StoreV2) PersistRecentlyPlayed(
 	ctx context.Context, songs []PlayHistoryObject, userID int,
 ) ([]string, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Persist", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	// for each item, create all necessary rows
@@ -61,8 +58,6 @@ type NameWithTime struct {
 func (s StoreV2) GetRecentlyPlayed(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithTime, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
@@ -94,8 +89,6 @@ WHERE user_id=$1
 func (s StoreV2) GetRecentlyPlayedByArtist(
 	ctx context.Context, userID int, start, end time.Time,
 ) ([]NameWithListens, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `
@@ -136,8 +129,6 @@ type NameWithListens struct {
 func (s StoreV2) GetRecentlyPlayedForArtist(
 	ctx context.Context, userID int, artist string, start, end time.Time,
 ) ([]NameWithListens, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "spotify.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx, `

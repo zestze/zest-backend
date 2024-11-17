@@ -6,7 +6,6 @@ import (
 
 	"github.com/zestze/zest-backend/internal/user"
 	"github.com/zestze/zest-backend/internal/zql"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"database/sql"
 
@@ -23,14 +22,7 @@ func NewStore(db *sql.DB) Store {
 	}
 }
 
-var spanOpts = []tracer.StartSpanOption{
-	tracer.ResourceName("sql"),
-	tracer.SpanType("db"),
-}
-
 func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "metacritic.Persist", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
@@ -75,8 +67,6 @@ func (s Store) PersistPosts(ctx context.Context, posts []Post) ([]int64, error) 
 }
 
 func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "metacritic.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	lowerBound, upperBound := opts.RangeAsDate()
@@ -111,8 +101,6 @@ func (s Store) GetPosts(ctx context.Context, opts Options) ([]Post, error) {
 }
 
 func (s Store) SavePostsForUser(ctx context.Context, ids []int64, userID user.ID, action Action) error {
-	span, ctx := tracer.StartSpanFromContext(ctx, "metacritic.Persist", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	stmt, err := s.db.PrepareContext(ctx,
@@ -145,8 +133,6 @@ func (s Store) SavePostsForUser(ctx context.Context, ids []int64, userID user.ID
 }
 
 func (s Store) GetSavedPostsForUser(ctx context.Context, userID user.ID) ([]PostWithAction, error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "metacritic.Get", spanOpts...)
-	defer span.Finish()
 	logger := zlog.Logger(ctx)
 
 	rows, err := s.db.QueryContext(ctx,
