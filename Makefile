@@ -25,7 +25,7 @@ up:
 	$(COMPOSE) up -d
 
 server: build
-	$(COMPOSE) --profile server up -d
+	$(COMPOSE) --profile server --profile dev up -d
 
 dev:
 	$(COMPOSE) --profile dev up -d
@@ -48,6 +48,8 @@ down-with-volumes:
 ##################
 ## postgres commands
 ##################
+
+# NOTE: it's honestly much easier to move things around with adminer...
 
 .PHONY: dump restore
 

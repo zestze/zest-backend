@@ -33,7 +33,8 @@ func (svc Controller) Register(r gin.IRouter, auth gin.HandlerFunc) {
 	g.Use(auth)
 	g.GET("/posts", svc.getPostsForAPI)
 	g.POST("/refresh", svc.refresh)
-	g.PATCH("/posts", zgin.WithUser(svc.savePosts))
+	g.POST("/posts/saved", zgin.WithUser(svc.savePosts))
+	g.GET("/posts/saved", zgin.WithUser(svc.getSavedPosts))
 }
 
 type SavePostsInput struct {
@@ -54,13 +55,31 @@ func (svc Controller) savePosts(c *gin.Context, userID user.ID, logger *slog.Log
 	}
 
 	if err := svc.Store.SavePostsForUser(
-		c.Request.Context(), input.IDs, userID, input.Action); err != nil {
+		c.Request.Context(), input.IDs, userID, input.Action,
+	); err != nil {
 		logger.Error("error saving posts", "error", err)
 		zgin.InternalError(c)
 		return
 	}
 
 	c.Status(http.StatusCreated)
+}
+
+func (svc Controller) getSavedPosts(c *gin.Context, userID user.ID, logger *slog.Logger) {
+	logger.Info("going to fetch posts")
+	posts, err := svc.Store.GetSavedPostsForUser(
+		c.Request.Context(), userID,
+	)
+	if err != nil {
+		logger.Error("error fetching posts", "error", err)
+		zgin.InternalError(c)
+		return
+	}
+
+	logger.Info("successfully fetch posts", slog.Int("num_posts", len(posts)))
+	c.IndentedJSON(http.StatusOK, gin.H{
+		"posts": posts,
+	})
 }
 
 func (svc Controller) getPostsForAPI(c *gin.Context) {
@@ -86,7 +105,7 @@ func (svc Controller) getPostsForAPI(c *gin.Context) {
 	logger.Info("going to fetch posts")
 	posts, err := svc.Store.GetPosts(c.Request.Context(), opts)
 	if err != nil {
-		slog.Error("error fetching posts", "error", err)
+		logger.Error("error fetching posts", "error", err)
 		zgin.InternalError(c)
 		return
 	}

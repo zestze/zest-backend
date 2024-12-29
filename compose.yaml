@@ -24,9 +24,6 @@ services:
       - type: bind
         source: ./secrets/
         target: /secrets/
-      - type: bind
-        source: .env
-        target: /.env
     depends_on:
       redis:
         condition: service_started
