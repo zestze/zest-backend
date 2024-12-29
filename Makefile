@@ -10,6 +10,9 @@ COMPOSE=$(DOCKER) compose
 
 .PHONY: build up server dev monitor all clean down down-with-volumes build-with-version
 
+clean:
+	$(DOCKER) system prune -a
+
 # TODO(zeke): make this grab branch name if not on master / main
 build-with-version:
 	$(COMPOSE) --profile server build \
@@ -30,17 +33,36 @@ dev:
 monitor: build
 	$(COMPOSE) --profile monitoring --profile server up -d
 
-all: build
-	$(COMPOSE) --profile "*" up -d
+COMPOSE_ALL_PROFILES=$(COMPOSE) --profile "*"
 
-clean:
-	$(DOCKER) system prune -a
+all: build
+	$(COMPOSE_ALL_PROFILES) up -d
 
 down:
-	$(COMPOSE) --profile "*" down --remove-orphans
+	$(COMPOSE_ALL_PROFILES) down --remove-orphans
 
 down-with-volumes:
-	$(COMPOSE) --profile "*" down -v --remove-orphans
+	$(COMPOSE_ALL_PROFILES) down -v --remove-orphans
+
+
+##################
+## postgres commands
+##################
+
+.PHONY: dump restore
+
+# took a while to figure out right configuration of dbname and username.
+# this seemed to work!
+dump:
+	$(DOCKER) exec -it postgres pg_dump zest -U zeke > dump.sql
+
+# trouble passing file, so doing `cat <file> | ... -f -`
+# also trouble passing input through stdin so removed `-it`
+# DIDN't WORK. Not sure why!! Trying with adminer instead.
+# maybe there needs to be another way to "refresh" the db.
+# can I just pull from the API to create resources locally?
+restore:
+	cat dump.sql | $(DOCKER) exec postgres psql -d zest -U zeke -f -
 
 ##################
 ## go tool commands
@@ -50,7 +72,7 @@ GFLAGS=-tags=jsoniter
 GVARS=GOEXPERIMENT=rangefunc
 GORUN=$(GVARS) go run $(GFLAGS)
 
-.PHONY: fmt run help test scrape dump backfill
+.PHONY: fmt run help test scrape go-dump backfill
 
 fmt:
 	go mod tidy
@@ -79,7 +101,7 @@ test-db: fmt
 scrape:
 	$(GORUN) ./cmd scrape reddit
 
-dump:
+go-dump:
 	$(GORUN) ./cmd dump
 
 backfill:

@@ -82,7 +82,7 @@ func scrapeMetacritic(medium metacritic.Medium, startYear int, numPages int) {
 				panic(err)
 			}
 
-			logger.Info("going to persist posts to sqlite")
+			logger.Info("going to persist posts to db")
 			ids, err := svc.Store.PersistPosts(ctx, posts)
 			if err != nil {
 				panic(err)

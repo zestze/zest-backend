@@ -1,9 +1,15 @@
-include:
-  - compose/monitoring.yaml
-  - compose/aux.yaml
+#include:
+#  - compose/monitoring.yaml
+#  - compose/aux.yaml
 services:
+  adminer:
+    profiles: ["dev"]
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - 8888:8080
   zest-api:
-    profiles: [ "server" ]
+    profiles: ["server"]
     container_name: zest-api
     build: .
     ports:
@@ -27,7 +33,7 @@ services:
       postgres:
         condition: service_healthy
   redis:
-    profiles: [ "server" ]
+    profiles: ["server"]
     image: redis:alpine
     container_name: redis
     restart: unless-stopped
@@ -47,12 +53,12 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U zeke" ]
+      test: ["CMD-SHELL", "pg_isready -U zeke"]
       interval: 5s
       timeout: 5s
       retries: 5
   atlas:
-    profiles: [ "dev" ]
+    profiles: ["dev"]
     image: postgres
     container_name: atlasdevdb
     ports:
@@ -64,8 +70,8 @@ services:
 
 volumes:
   pgdata:
-    driver: local # TODO(zeke): doing local for now, need a better way of pulling data from deployed instance
-    driver_opts:
-      type: none
-      o: bind
-      device: ./pgdata/workspace_pgdata
+    #driver: local # TODO(zeke): doing local for now, need a better way of pulling data from deployed instance
+    #driver_opts:
+    #  type: none
+    #  o: bind
+    #  device: ./pgdata/workspace_pgdata
