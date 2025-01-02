@@ -51,8 +51,13 @@ func (svc Controller) Login(c *gin.Context) {
 	// compare username password in store!
 	ctx := c.Request.Context()
 	user, err := svc.Store.GetUser(ctx, creds.Username)
-	if err != nil {
-		logger.Error("error fetching password for login", "error", err)
+	if errors.Is(err, sql.ErrNoRows) {
+		c.IndentedJSON(http.StatusUnauthorized, gin.H{
+			"reason": "invalid_username",
+		})
+		return
+	} else if err != nil {
+		logger.Error("error fetching user from store", "error", err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
 			"error": "db error",
 		})
@@ -62,7 +67,7 @@ func (svc Controller) Login(c *gin.Context) {
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(creds.Password))
 	if err != nil && errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 		c.IndentedJSON(http.StatusUnauthorized, gin.H{
-			"status": "unauthorized",
+			"reason": "invalid_password",
 		})
 		return
 	} else if err != nil {
