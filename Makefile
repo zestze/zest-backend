@@ -13,10 +13,15 @@ COMPOSE=$(DOCKER) compose
 clean:
 	$(DOCKER) system prune -a
 
-# TODO(zeke): make this grab branch name if not on master / main
+GIT_VERSION := $(shell git branch --show-current)
+ifeq ($(GIT_VERSION),master)
+	GIT_VERSION := $(shell git rev-parse --short HEAD)
+endif
+
+
 build-with-version:
 	$(COMPOSE) --profile server build \
-		--build-arg git_version=$(shell git rev-parse --short HEAD)
+		--build-arg git_version=$(GIT_VERSION)
 
 build:
 	$(COMPOSE) --profile server build
